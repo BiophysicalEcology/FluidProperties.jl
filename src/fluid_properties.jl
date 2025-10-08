@@ -148,7 +148,7 @@ end
     dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
 
 """
-@inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0m, fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
+@inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0u"m", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
     dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     M_a = ((fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) |> u"kg") / 1u"mol" # molar mass of air
