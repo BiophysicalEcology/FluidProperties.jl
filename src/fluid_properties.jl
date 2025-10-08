@@ -148,27 +148,27 @@ end
     dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
 
 """
-@inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0u"m", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
+@inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0.0u"m", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
     dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     M_a = ((fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) |> u"kg") / 1u"mol" # molar mass of air
     if isnothing(P_atmos)
         P_atmos = atmospheric_pressure(elevation)
     end
-    ρ_air = (M_a / R) * P_atmos / (T_drybulb) # density of air
+    ρ_air = (M_a / R) * P_atmos / (u"K"(T_drybulb)) # density of air
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
     T_0 = 296.16u"K" # reference temperature
     C = 120u"K" # Sutherland's constant
-    μ = (μ_0 * (T_0 + C) / (T_drybulb + C)) * (T_drybulb / T_0)^1.5 # dynamic viscosity, kg / m.s
+    μ = (μ_0 * (T_0 + C) / (u"K"(T_drybulb) + C)) * (u"K"(T_drybulb) / T_0)^1.5 # dynamic viscosity, kg / m.s
     ν = μ / ρ_air # kinematic viscosity m2 / s or J.s/kg
     D_0 = 2.26e-5u"m^2/s" # reference molecular diffusivity of water vapour at 273.15 K
-    D_w = D_0 * ((T_drybulb / 273.15u"K")^1.81) * (1.e5u"Pa" / P_atmos) # vapour diffusivity m2 / s
+    D_w = D_0 * ((u"K"(T_drybulb) / 273.15u"K")^1.81) * (1.e5u"Pa" / P_atmos) # vapour diffusivity m2 / s
     k_air = (0.02425 + (7.038e-5 * ustrip(u"°C", T_drybulb)))u"W/m/K" # thermal conductivity of air
-    β = 1 / T_drybulb # thermal expansion coefficient
+    β = 1 / u"K"(T_drybulb) # thermal expansion coefficient
     Grashof_group = g_n * β / (ν^2) # multipy by ΔT L^3 to get Grashof number, 1 / m3.K
-    blackbody_emission = σ * ((T_drybulb)^4) # W/m2
-    λ_max = 2.897e-3u"K*m" / (T_drybulb) # wavelength of maximum emission, m
+    blackbody_emission = σ * (u"K"(T_drybulb)^4) # W/m2
+    λ_max = 2.897e-3u"K*m" / (u"K"(T_drybulb)) # wavelength of maximum emission, m
 
     return (; P_atmos, ρ_air, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max)
 end
