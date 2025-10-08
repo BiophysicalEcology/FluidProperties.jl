@@ -113,7 +113,7 @@ end
                 rh = 100.0
             else
                 δ_bulb = T_drybulb - T_wetbulb
-                δ_P_vap = (0.000660 * (1 + 0.00115 * ustrip(u"°C", u"K"(T_wetbulb))) * ustrip(u"Pa", P) * ustrip(u"K", δ_bulb))u"Pa"
+                δ_P_vap = (0.000660 * (1 + 0.00115 * ustrip(u"°C", T_wetbulb)) * ustrip(u"Pa", P) * ustrip(u"°C", δ_bulb))u"Pa"
                 P_vap = vapour_pressure(vapour_pressure_equation, T_wetbulb) - δ_P_vap
                 rh = (P_vap / P_vap_sat) * 100
             end
@@ -164,7 +164,7 @@ end
     ν = μ / ρ_air # kinematic viscosity m2 / s or J.s/kg
     D_0 = 2.26e-5u"m^2/s" # reference molecular diffusivity of water vapour at 273.15 K
     D_w = D_0 * ((T_drybulb / 273.15u"K")^1.81) * (1.e5u"Pa" / P_atmos) # vapour diffusivity m2 / s
-    k_air = (0.02425 + (7.038e-5 * (ustrip(u"K", T_drybulb) - 273.15)))u"W/m/K" # thermal conductivity of air
+    k_air = (0.02425 + (7.038e-5 * ustrip(u"°C", T_drybulb)))u"W/m/K" # thermal conductivity of air
     β = 1 / T_drybulb # thermal expansion coefficient
     Grashof_group = g_n * β / (ν^2) # multipy by ΔT L^3 to get Grashof number, 1 / m3.K
     blackbody_emission = σ * ((T_drybulb)^4) # W/m2
@@ -179,7 +179,7 @@ end
 function enthalpy_of_vaporisation(T::Quantity)
     # These regressions don't respect units, so we strip them
     # convert any temperature (K or °C) to Celsius
-    T = ustrip(u"°C", uconvert(u"°C", T))
+    T = ustrip(u"°C", T)
     if T > 0
         return u"J/kg"((2500.8 - 2.36 * T + 0.0016 * T^2 - 0.00006 * T^3) * u"kJ/kg")
     else
@@ -201,7 +201,7 @@ References
 function molar_enthalpy_of_vaporisation(T::Quantity)
     # This regressions doesn't respect units, so we strip them
     # convert any temperature (K or °C) to Celsius
-    T = ustrip(u"°C", uconvert(u"°C", T))
+    T = ustrip(u"°C", T)
     return (45144.0 - 48.0 * T) * u"J/mol"
 end
 
@@ -237,7 +237,7 @@ A named tuple with the following fields (all returned as Unitful quantities):
 """
 function water_properties(T::Quantity)
     # These regressions don't respect units, so we strip them
-    T = ustrip(u"°C", uconvert(u"°C", T)) # Ensure temperature is in °C
+    T = ustrip(u"°C", T) # Ensure temperature is in °C
 
     # Specific heat capacity (J/kg·K)
     c_p = (4220.02 - 4.5531 * T + 0.182958 * T^2 - 0.00310614 * T^3 + 1.89399e-5 * T^4) * u"J/kg/K"
