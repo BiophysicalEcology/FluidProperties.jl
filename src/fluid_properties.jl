@@ -60,17 +60,17 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 # TODO fix this desctiption
 (1) Psychrometric data:
 If T_wetbulb is known but not rh, then set rh=-1 and dp=999
-If rh is known but not T_wetbulb then set T_wetbulb=0 and dp=999
+If rh is known but not T_wetbulb then set T_wetbulb=nothing and dp=999
 
 (2) Hygrometric data:
-If T_dew is known then set T_wetublb = 0 and rh = 0.
+If T_dew is known then set T_wetublb = nothing and rh = nothing.
 
 # Arguments
 
-- `T_drybulb`: Dry bulb temperature (K)
-- `T_wetbulb`: Wet bulb temperature (K)
+- `T_drybulb`: Dry bulb temperature (K or °C)
+- `T_wetbulb`: Wet bulb temperature (K or °C)
 - `rh`: Relative humidity (%)
-- `T_dew`: Dew point temperature (K)
+- `T_dew`: Dew point temperature (K or °C)
 - `P`: Barometric pressure (Pa)
 - `fO2`; fractional O2 concentration in atmosphere, -
 - `fCO2`; fractional CO2 concentration in atmosphere, -
@@ -105,32 +105,32 @@ end
     f_w = 1.0053 # (-) correction factor for the departure of the mixture of air and water vapour from ideal gas laws
     M_w = (1molH₂O |> u"kg") / 1u"mol" # molar mass of water
     M_a = (fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol" # molar mass of air
-    P_vap_sat = vapour_pressure(vapour_pressure_equation, T_drybulb)
+    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
     if isnothing(T_dew)
         if isnothing(rh)
             if isnothing(T_wetbulb) # We assume T_wetbulb == T_drybulb
                 P_vap = P_vap_sat
                 rh = 100.0
             else
-                δ_bulb = T_drybulb - T_wetbulb
+                δ_bulb = u"K"(T_drybulb - T_wetbulb)
                 δ_P_vap = (0.000660 * (1 + 0.00115 * ustrip(u"°C", T_wetbulb)) * ustrip(u"Pa", P) * ustrip(u"°C", δ_bulb))u"Pa"
-                P_vap = vapour_pressure(vapour_pressure_equation, T_wetbulb) - δ_P_vap
+                P_vap = vapour_pressure(vapour_pressure_equation, u"K"(T_wetbulb)) - δ_P_vap
                 rh = (P_vap / P_vap_sat) * 100
             end
         else
             P_vap = P_vap_sat * rh * 0.01
         end
     else
-        P_vap = vapour_pressure(vapour_pressure_equation, T_dew)
+        P_vap = vapour_pressure(vapour_pressure_equation, u"K"(T_dew))
         # TODO what are these * and / 100
         # And why dont we check isnothing(rh) here as well?
         rh = (P_vap / P_vap_sat) * 100
     end
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
-    ρ_vap = P_vap * M_w / (0.998 * Unitful.R * T_drybulb) # TODO 0.998 a correction factor?
+    ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb)) # TODO 0.998 a correction factor?
     ρ_vap = uconvert(u"kg/m^3", ρ_vap) # simplify units
-    T_vir = T_drybulb * ((1 + r_w / (M_w / M_a)) / (1 + r_w))
-    T_vinc = T_vir - T_drybulb
+    T_vir = u"K"(T_drybulb) * ((1 + r_w / (M_w / M_a)) / (1 + r_w))
+    T_vinc = T_vir - u"K"(T_drybulb)
     ρ_air = (M_a / Unitful.R) * P_atmos / (0.999 * T_vir) # TODO 0.999 a correction factor?
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     c_p = (c_p_dry_air + (r_w * c_p_H2O_vap)) / (1 + r_w)
