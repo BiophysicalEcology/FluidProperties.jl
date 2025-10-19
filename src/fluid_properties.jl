@@ -128,7 +128,7 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
     names_ = propertynames(first(skipmissing(out)))
     default_nt = (; P_vap=NaN, ρ_vap=NaN, r_w=NaN, T_vinc=NaN,
                 ρ_air=NaN, c_p=NaN, ψ=NaN, rh=NaN)
-    clean_out = [ismissing(x) ? default_nt : x for x in wet_air_properties_out]
+    clean_out = [ismissing(x) ? default_nt : x for x in out]
     return NamedTuple{names_}(
         tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
     )
