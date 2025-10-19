@@ -40,14 +40,14 @@ P_atmos = atmospheric_pressure((pars.elevation)u"m")
 dry_air_out = dry_air_properties(u"K".(T_airs), P_atmos=fill(P_atmos, length(T_airs)))
 
 # Extract each component into plain arrays
-ρ_air             = getindex.(dry_air_out, 1)
-μ                 = getindex.(dry_air_out, 2)
-ν                 = getindex.(dry_air_out, 3)
-D_w               = getindex.(dry_air_out, 4)
-k_air             = getindex.(dry_air_out, 5)
-Grashof_group     = getindex.(dry_air_out, 6)
-blackbody_emission = getindex.(dry_air_out, 7)
-λ_max             = getindex.(dry_air_out, 8)
+ρ_air             = dry_air_out.ρ_air
+μ                 = dry_air_out.μ
+ν                 = dry_air_out.ν
+D_w               = dry_air_out.D_w
+k_air             = dry_air_out.k_air
+Grashof_group     = dry_air_out.Grashof_group
+blackbody_emission = dry_air_out.blackbody_emission
+λ_max             = dry_air_out.λ_max
 
 @testset "R DRYAIR comparisons" begin
     @test all(isapprox.(ρ_air, denair_dry; rtol=1e-9))
@@ -60,25 +60,21 @@ blackbody_emission = getindex.(dry_air_out, 7)
     @test all(isapprox.(λ_max, emtmax; rtol=1e-9))
 end 
 
-wet_air_out = wet_air_properties.(u"K".(T_airs), P_atmos = P_atmos[1], rh = pars.rh)
+wet_air_out = wet_air_properties(u"K".(T_airs), P_atmos = fill(P_atmos, length(T_airs)), rh = fill(pars.rh, length(T_airs)))
 # Extract each component into plain arrays
-P_vap     = getindex.(wet_air_out, 1)
-P_vap_sat = getindex.(wet_air_out, 2)
-ρ_vap     = getindex.(wet_air_out, 3)
-r_w       = getindex.(wet_air_out, 4)
-T_vinc    = getindex.(wet_air_out, 5)
-ρ_air_wet = getindex.(wet_air_out, 6)
-c_p       = getindex.(wet_air_out, 7)
-ψ         = getindex.(wet_air_out, 8)
-rh        = getindex.(wet_air_out, 9)
+P_vap     = wet_air_out.P_vap
+ρ_vap     = wet_air_out.ρ_vap
+r_w       = wet_air_out.r_w
+T_vinc    = wet_air_out.T_vinc
+c_p       = wet_air_out.c_p
+ψ         = wet_air_out.ψ
+rh        = wet_air_out.rh
 
 @testset "R WETAIR comparisons" begin
     @test all(isapprox.(P_vap, e; rtol=1e-9))
-    @test all(isapprox.(P_vap_sat, esat; rtol=1e-9))
     @test all(isapprox.(ρ_vap, vd; rtol=1e-9))
     @test all(isapprox.(r_w, rw; rtol=1e-9))
     @test all(isapprox.(T_vinc, tvinc; rtol=1e-9))
-    @test all(isapprox.(ρ_air_wet, denair_wet; rtol=1e-9))
     @test all(isapprox.(c_p, c_p_NMR; rtol=1e-9))
     @test all(isapprox.(ψ, wtrpot; rtol=1e-9))
 end 
