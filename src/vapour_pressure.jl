@@ -86,5 +86,5 @@ Calculates saturation vapour pressure (Pa) for a given air temperature.
 
 The `GoffGratch` formulation is used by default.
 """
-vapour_pressure(missing) = missing
+vapour_pressure(::Missing) = missing
 vapour_pressure(Tk) = vapour_pressure(GoffGratch(), Tk)
