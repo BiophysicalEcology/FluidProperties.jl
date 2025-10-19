@@ -125,7 +125,6 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
         wet_air_properties(Td, Tw, rh_, Td_, P, fO2, fCO2, fN2;
                            vapour_pressure_equation=vapour_pressure_equation)
     end
-    out = wet_air_properties_out
     names_ = propertynames(first(skipmissing(out)))
     default_nt = (; P_vap=NaN, ρ_vap=NaN, r_w=NaN, T_vinc=NaN,
                 ρ_air=NaN, c_p=NaN, ψ=NaN, rh=NaN)
