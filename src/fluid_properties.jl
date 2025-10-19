@@ -109,7 +109,7 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
         return missing  # nothing to compute humidity from
     end
     
-    if Base.isscalar(T_drybulb)
+    if isa(T_drybulb, Number)
         return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
                                   vapour_pressure_equation=vapour_pressure_equation)        
     else
@@ -183,7 +183,7 @@ dry_air_properties(::Missing; kwargs...) = missing
         return missing
     end
 
-    if Base.isscalar(T_drybulb)
+    if isa(T_drybulb, Number)
         return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     else
         return map(t -> dry_air_properties(t; P_atmos=P_atmos, elevation=elevation, 
