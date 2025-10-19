@@ -1,7 +1,7 @@
 abstract type VapourPressureEquation end
 
 """
-    Tetens <: VapourPressureEquation
+    Teten <: VapourPressureEquation
 
 Tetens equations for [`vapour_pressure`](@ref).
 
@@ -9,6 +9,7 @@ Low accuracy but very fast, with only a single `exp` call.
 """
 struct Teten <: VapourPressureEquation end
 
+vapour_pressure(::Teten, ::Missing) = missing
 function vapour_pressure(::Teten, T)
     Tc = ustrip(u"°C", T)
     P_triple = 6.1071    # hPa, vapour pressure at triple point
@@ -22,6 +23,7 @@ Widely used Goff-Gratch equations for [`vapour_pressure`](@ref).
 """
 struct GoffGratch <: VapourPressureEquation end
 
+vapour_pressure(::GoffGratch, ::Missing) = missing
 function vapour_pressure(::GoffGratch, T)
     Tc = ustrip(u"°C", T)
     T = ustrip(u"K", T) + 0.01 # triple point of water is 273.16
@@ -61,6 +63,7 @@ High accuracy from -100 to 100 °C and reasonable performance.
 """
 struct Huang <: VapourPressureEquation end
 
+vapour_pressure(::Huang, ::Missing) = missing
 function vapour_pressure(::Huang, Tk)
     t = ustrip(u"°C", Tk)
     if t > 0.0
@@ -83,4 +86,5 @@ Calculates saturation vapour pressure (Pa) for a given air temperature.
 
 The `GoffGratch` formulation is used by default.
 """
+vapour_pressure(missing) = missing
 vapour_pressure(Tk) = vapour_pressure(GoffGratch(), Tk)

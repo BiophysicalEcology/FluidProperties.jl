@@ -32,6 +32,7 @@ using Unitful
 
 P = atmospheric_pressure(1500u"m")
 """
+atmospheric_pressure(::Missing; kw...) = missing
 function atmospheric_pressure(h::Quantity;
     #P_ref::Quantity = atm,
     L_ref::Quantity = -0.0065u"K/m",
@@ -97,6 +98,17 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
     fN2=0.79,
     vapour_pressure_equation=GoffGratch(),
 )
+    if ismissing(T_drybulb) || ismissing(P_atmos)
+        return missing
+    end
+
+    # Check humidity inputs
+    humidity_inputs = (T_wetbulb, T_dew, rh)
+    all_missing = all(x -> (ismissing(x) || x === nothing), humidity_inputs)
+    if all_missing
+        return missing  # nothing to compute humidity from
+    end
+    
     return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2; vapour_pressure_equation)
 end
 @inline function wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2; vapour_pressure_equation)
@@ -148,6 +160,7 @@ end
     dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
 
 """
+dry_air_properties(::Missing; kwargs...) = missing
 @inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0.0u"m", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
     dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
@@ -176,6 +189,7 @@ end
 """
     enthalpy_of_vaporisation(T::Quantity)
 """
+enthalpy_of_vaporisation(::Missing) = missing
 function enthalpy_of_vaporisation(T::Quantity)
     # These regressions don't respect units, so we strip them
     # convert any temperature (K or °C) to Celsius
@@ -198,6 +212,7 @@ References
   Predicting the effect of temperature on soil thermal conductivity. 
   Soil Science, 158(5), 307–313.
 """
+molar_enthalpy_of_vaporisation(::Missing) = missing
 function molar_enthalpy_of_vaporisation(T::Quantity)
     # This regressions doesn't respect units, so we strip them
     # convert any temperature (K or °C) to Celsius
@@ -235,6 +250,7 @@ A named tuple with the following fields (all returned as Unitful quantities):
 - Input temperatures are converted to °C and then units stripped before calculation.
 - Density is clamped at 60°C to avoid extrapolation beyond the regression range.
 """
+water_properties(::Missing) = missing
 function water_properties(T::Quantity)
     # These regressions don't respect units, so we strip them
     T = ustrip(u"°C", T) # Ensure temperature is in °C
