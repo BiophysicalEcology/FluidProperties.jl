@@ -220,7 +220,7 @@ dry_air_properties(::Missing; kwargs...) = missing
     fN2=0.79
 )
     if isa(T_drybulb, Number)
-        return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
+        return dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
     end
 
     # vector/matrix input
@@ -249,7 +249,7 @@ end
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
     T_0 = 296.16u"K" # reference temperature
-    C = 120u"K" # Sutherland's constant
+    C = 120.0u"K" # Sutherland's constant
     μ = (μ_0 * (T_0 + C) / (u"K"(T_drybulb) + C)) * (u"K"(T_drybulb) / T_0)^1.5 # dynamic viscosity, kg / m.s
     ν = μ / ρ_air # kinematic viscosity m2 / s or J.s/kg
     D_0 = 2.26e-5u"m^2/s" # reference molecular diffusivity of water vapour at 273.15 K
