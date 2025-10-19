@@ -112,9 +112,9 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
     end
 
     return map(T_drybulb, 
-               isnothing(T_wetbulb) ? T_drybulb * NaN : T_wetbulb,
-               isnothing(rh)        ? T_drybulb * NaN : rh,
-               isnothing(T_dew)     ? T_drybulb * NaN : T_dew,
+               isnothing(T_wetbulb) ? nothing : T_wetbulb,
+               isnothing(rh)        ? nothing : rh,
+               isnothing(T_dew)     ? nothing : T_dew,
                P_atmos) do Td, Tw, rh_, Td_, P
         wet_air_properties(
             Td, Tw, rh_, Td_, P, fO2, fCO2, fN2;
