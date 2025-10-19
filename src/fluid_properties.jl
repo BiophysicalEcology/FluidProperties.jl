@@ -100,25 +100,26 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
 )
     if ismissing(T_drybulb) || ismissing(P_atmos)
         return missing
-    end
-
-    # Check humidity inputs
-    humidity_inputs = (T_wetbulb, T_dew, rh)
-    all_missing = all(x -> (ismissing(x) || x === nothing), humidity_inputs)
-    if all_missing
-        return missing  # nothing to compute humidity from
-    end
-    
-    if isa(T_drybulb, Number)
-        return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
-                                  vapour_pressure_equation=vapour_pressure_equation)        
     else
-        return map(t -> wet_air_properties(t; T_wetbulb=T_wetbulb, T_dew=T_dew, rh=rh, 
-                                           P_atmos=P_atmos, fO2=fO2, fCO2=fCO2, fN2=fN2,
-                                           vapour_pressure_equation=vapour_pressure_equation), 
-                   T_drybulb)
-    end
 
+        # Check humidity inputs
+        humidity_inputs = (T_wetbulb, T_dew, rh)
+        all_missing = all(x -> (ismissing(x) || x === nothing), humidity_inputs)
+        if all_missing
+            return missing  # nothing to compute humidity from
+        else
+    
+            if isa(T_drybulb, Number)
+                return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
+                                        vapour_pressure_equation=vapour_pressure_equation)        
+            else
+                return map(t -> wet_air_properties(t; T_wetbulb=T_wetbulb, T_dew=T_dew, rh=rh, 
+                                                P_atmos=P_atmos, fO2=fO2, fCO2=fCO2, fN2=fN2,
+                                                vapour_pressure_equation=vapour_pressure_equation), 
+                        T_drybulb)
+            end
+        end
+    end
 end
 @inline function wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2; vapour_pressure_equation)
     c_p_H2O_vap = 1864.40u"J/K/kg"
@@ -181,14 +182,15 @@ dry_air_properties(::Missing; kwargs...) = missing
 )
     if ismissing(T_drybulb)
         return missing
-    end
-
-    if isa(T_drybulb, Number)
-        return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     else
-        return map(t -> dry_air_properties(t; P_atmos=P_atmos, elevation=elevation, 
-                                           fO2=fO2, fCO2=fCO2, fN2=fN2), 
-                   T_drybulb)
+
+        if isa(T_drybulb, Number)
+            return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
+        else
+            return map(t -> dry_air_properties(t; P_atmos=P_atmos, elevation=elevation, 
+                                            fO2=fO2, fCO2=fCO2, fN2=fN2), 
+                    T_drybulb)
+        end
     end
 end    
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
