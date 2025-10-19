@@ -36,18 +36,18 @@ DENSTY_water = (DataFrame(CSV.File("$testdir/data/DENSTY_water.csv"))[:, 2]) .* 
 THCOND_water = (DataFrame(CSV.File("$testdir/data/THCOND_water.csv"))[:, 2]) .* u"W/m/K"
 VISDYN_water = (DataFrame(CSV.File("$testdir/data/VISDYN_water.csv"))[:, 2]) .* u"kg * m^-1 * s^-1"
 
-dry_air_out = dry_air_properties.(u"K".(T_airs), elevation=(pars.elevation)u"m")
+P_atmos = atmospheric_pressure((pars.elevation)u"m")
+dry_air_out = dry_air_properties.(u"K".(T_airs), P_atmos)
 
 # Extract each component into plain arrays
-P_atmos           = getindex.(dry_air_out, 1)
-ρ_air             = getindex.(dry_air_out, 2)
-μ                 = getindex.(dry_air_out, 3)
-ν                 = getindex.(dry_air_out, 4)
-D_w               = getindex.(dry_air_out, 5)
-k_air             = getindex.(dry_air_out, 6)
-Grashof_group     = getindex.(dry_air_out, 7)
-blackbody_emission = getindex.(dry_air_out, 8)
-λ_max             = getindex.(dry_air_out, 9)
+ρ_air             = getindex.(dry_air_out, 1)
+μ                 = getindex.(dry_air_out, 2)
+ν                 = getindex.(dry_air_out, 3)
+D_w               = getindex.(dry_air_out, 4)
+k_air             = getindex.(dry_air_out, 5)
+Grashof_group     = getindex.(dry_air_out, 6)
+blackbody_emission = getindex.(dry_air_out, 7)
+λ_max             = getindex.(dry_air_out, 8)
 
 @testset "R DRYAIR comparisons" begin
     @test all(isapprox.(ρ_air, denair_dry; rtol=1e-9))
