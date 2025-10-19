@@ -109,14 +109,14 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
         return missing  # nothing to compute humidity from
     end
     
-    if T_drybulb isa Raster
+    if Base.isscalar(T_drybulb)
+        return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
+                                  vapour_pressure_equation=vapour_pressure_equation)        
+    else
         return map(t -> wet_air_properties(t; T_wetbulb=T_wetbulb, T_dew=T_dew, rh=rh, 
                                            P_atmos=P_atmos, fO2=fO2, fCO2=fCO2, fN2=fN2,
                                            vapour_pressure_equation=vapour_pressure_equation), 
                    T_drybulb)
-    else
-        return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
-                                  vapour_pressure_equation=vapour_pressure_equation)
     end
 
 end
@@ -179,15 +179,16 @@ dry_air_properties(::Missing; kwargs...) = missing
     fCO2=0.0004, 
     fN2=0.79
 )
-    if T_drybulb isa Raster
-        # broadcast over raster
+    if ismissing(T_drybulb)
+        return missing
+    end
+
+    if Base.isscalar(T_drybulb)
+        return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
+    else
         return map(t -> dry_air_properties(t; P_atmos=P_atmos, elevation=elevation, 
                                            fO2=fO2, fCO2=fCO2, fN2=fN2), 
                    T_drybulb)
-    elseif ismissing(T_drybulb)
-        return missing
-    else
-        return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     end
 end    
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
