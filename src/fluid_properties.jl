@@ -207,15 +207,14 @@ end
 
 """
     dry_air_properties(T_drybulb; kw...)
-    dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
+    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
 
 """
 dry_air_properties(::Missing; kwargs...) = missing
-#@inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0.0u"m", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
-#    dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
+#@inline dry_air_properties(T_drybulb; P_atmos=101325u"Pa", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
+#    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
 @inline function dry_air_properties(T_drybulb; 
-    P_atmos=nothing, 
-    elevation=0.0u"m", 
+    P_atmos=101325u"Pa", 
     fO2=0.2095, 
     fCO2=0.0004, 
     fN2=0.79
@@ -237,18 +236,15 @@ dry_air_properties(::Missing; kwargs...) = missing
         dry_air_properties(Td, Pa_, fO2, fCO2, fN2)
     end
     names_ = propertynames(first(skipmissing(out)))
-    default_nt = (; P_atmos=NaN, ρ_air=NaN, μ=NaN, ν=NaN, D_w=NaN,
+    default_nt = (; ρ_air=NaN, μ=NaN, ν=NaN, D_w=NaN,
         k_air=NaN, Grashof_group=NaN, blackbody_emission=NaN, λ_max=NaN)
     clean_out = [ismissing(x) ? default_nt : x for x in out]
     return NamedTuple{names_}(
         tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
     )
 end    
-@inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
+@inline function dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
     M_a = ((fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) |> u"kg") / 1u"mol" # molar mass of air
-    if isnothing(P_atmos)
-        P_atmos = atmospheric_pressure(elevation)
-    end
     ρ_air = (M_a / R) * P_atmos / (u"K"(T_drybulb)) # density of air
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
@@ -264,7 +260,7 @@ end
     blackbody_emission = σ * (u"K"(T_drybulb)^4) # W/m2
     λ_max = 2.897e-3u"K*m" / (u"K"(T_drybulb)) # wavelength of maximum emission, m
 
-    return (; P_atmos, ρ_air, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max)
+    return (; ρ_air, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max)
 end
 
 """
