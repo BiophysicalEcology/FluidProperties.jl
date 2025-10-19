@@ -213,7 +213,7 @@ end
 dry_air_properties(::Missing; kwargs...) = missing
 #@inline dry_air_properties(T_drybulb; P_atmos=nothing, elevation=0.0u"m", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
 #    dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
-@inline function dry_air_properties(T_drybulb::Number; 
+@inline function dry_air_properties(T_drybulb; 
     P_atmos=nothing, 
     elevation=0.0u"m", 
     fO2=0.2095, 
@@ -222,18 +222,27 @@ dry_air_properties(::Missing; kwargs...) = missing
 )
     if isa(T_drybulb, Number)
         return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
-    else
-        out = map(t -> dry_air_properties(t; P_atmos, elevation, fO2, fCO2, fN2), 
-                    T_drybulb)
-                    P_atmos, ρ_air, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max
-        names_ = propertynames(first(skipmissing(out)))
-        default_nt = (; P_atmos=NaN, ρ_air=NaN, μ=NaN, ν=NaN, D_w=NaN, 
-                    k_air=NaN, Grashof_group=NaN, blackbody_emission=NaN, λ_max=NaN)
-        clean_out = [ismissing(x) ? default_nt : x for x in out]
-        return NamedTuple{names_}(
-            tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
-        )
     end
+
+    # vector/matrix input
+    shp = size(T_drybulb)
+
+    Pa_arr = isnothing(P_atmos) ? fill(nothing, shp) :
+             (isa(P_atmos, Number) || !isempty(size(P_atmos)) ? P_atmos : fill(P_atmos, shp))
+
+    out = map(T_drybulb, Pa_arr) do Td, Pa_
+        if any(ismissing, (Td, Pa_))
+            return missing
+        end
+        dry_air_properties(Td, Pa_, fO2, fCO2, fN2)
+    end
+    names_ = propertynames(first(skipmissing(out)))
+    default_nt = (; P_atmos=NaN, ρ_air=NaN, μ=NaN, ν=NaN, D_w=NaN,
+        k_air=NaN, Grashof_group=NaN, blackbody_emission=NaN, λ_max=NaN)
+    clean_out = [ismissing(x) ? default_nt : x for x in out]
+    return NamedTuple{names_}(
+        tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
+    )
 end    
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     M_a = ((fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) |> u"kg") / 1u"mol" # molar mass of air
