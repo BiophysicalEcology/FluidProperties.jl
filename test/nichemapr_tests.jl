@@ -37,7 +37,7 @@ THCOND_water = (DataFrame(CSV.File("$testdir/data/THCOND_water.csv"))[:, 2]) .* 
 VISDYN_water = (DataFrame(CSV.File("$testdir/data/VISDYN_water.csv"))[:, 2]) .* u"kg * m^-1 * s^-1"
 
 P_atmos = atmospheric_pressure((pars.elevation)u"m")
-dry_air_out = dry_air_properties.(u"K".(T_airs), P_atmos)
+dry_air_out = dry_air_properties(u"K".(T_airs), P_atmos=fill(P_atmos, length(T_airs)))
 
 # Extract each component into plain arrays
 ρ_air             = getindex.(dry_air_out, 1)
