@@ -98,13 +98,13 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
     fN2=0.79,
     vapour_pressure_equation=GoffGratch(),
 )
-    
+    # scalar input
     if isa(T_drybulb, Number)
         return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
                                   vapour_pressure_equation=vapour_pressure_equation)        
     end
 
-    # Ensure inputs are iterable arrays of the same shape as T_drybulb
+    # vector/matrix input
     shp = size(T_drybulb)
 
     Tw_arr = isnothing(T_wetbulb) ? fill(nothing, shp) :
@@ -118,13 +118,21 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
 
     P_arr  = isa(P_atmos, Number) ? fill(P_atmos, shp) : P_atmos
 
-    return map(T_drybulb, Tw_arr, rh_arr, Td_arr, P_arr) do Td, Tw, rh_, Td_, P
+    out = map(T_drybulb, Tw_arr, rh_arr, Td_arr, P_arr) do Td, Tw, rh_, Td_, P
         if any(ismissing, (Td, Tw, rh_, Td_, P))
             return missing
         end
         wet_air_properties(Td, Tw, rh_, Td_, P, fO2, fCO2, fN2;
                            vapour_pressure_equation=vapour_pressure_equation)
     end
+    out = wet_air_properties_out
+    names_ = propertynames(first(skipmissing(out)))
+    default_nt = (; P_vap=NaN, ρ_vap=NaN, r_w=NaN, T_vinc=NaN,
+                ρ_air=NaN, c_p=NaN, ψ=NaN, rh=NaN)
+    clean_out = [ismissing(x) ? default_nt : x for x in wet_air_properties_out]
+    return NamedTuple{names_}(
+        tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
+    )
 end
 
 @inline function wet_air_properties(
