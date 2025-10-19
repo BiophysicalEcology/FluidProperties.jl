@@ -223,8 +223,16 @@ dry_air_properties(::Missing; kwargs...) = missing
     if isa(T_drybulb, Number)
         return dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
     else
-        return map(t -> dry_air_properties(t; P_atmos, elevation, fO2, fCO2, fN2), 
-                   T_drybulb)
+        out = map(t -> dry_air_properties(t; P_atmos, elevation, fO2, fCO2, fN2), 
+                    T_drybulb)
+                    P_atmos, ρ_air, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max
+        names_ = propertynames(first(skipmissing(out)))
+        default_nt = (; P_atmos=NaN, ρ_air=NaN, μ=NaN, ν=NaN, D_w=NaN, 
+                    k_air=NaN, Grashof_group=NaN, blackbody_emission=NaN, λ_max=NaN)
+        clean_out = [ismissing(x) ? default_nt : x for x in out]
+        return NamedTuple{names_}(
+            tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
+        )
     end
 end    
 @inline function dry_air_properties(T_drybulb, P_atmos, elevation, fO2, fCO2, fN2)
