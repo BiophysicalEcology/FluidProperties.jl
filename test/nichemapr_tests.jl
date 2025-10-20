@@ -37,17 +37,17 @@ THCOND_water = (DataFrame(CSV.File("$testdir/data/THCOND_water.csv"))[:, 2]) .* 
 VISDYN_water = (DataFrame(CSV.File("$testdir/data/VISDYN_water.csv"))[:, 2]) .* u"kg * m^-1 * s^-1"
 
 P_atmos = atmospheric_pressure((pars.elevation)u"m")
-dry_air_out = dry_air_properties(u"K".(T_airs), P_atmos=fill(P_atmos, length(T_airs)))
+dry_air_out = dry_air_properties(u"K".(T_airs), P_atmos)
 
 # Extract each component into plain arrays
-ρ_air             = dry_air_out.ρ_air
-μ                 = dry_air_out.μ
-ν                 = dry_air_out.ν
-D_w               = dry_air_out.D_w
-k_air             = dry_air_out.k_air
-Grashof_group     = dry_air_out.Grashof_group
-blackbody_emission = dry_air_out.blackbody_emission
-λ_max             = dry_air_out.λ_max
+ρ_air             = getfield.(dry_air_out, :ρ_air)
+μ                 = getfield.(dry_air_out, :μ)
+ν                 = getfield.(dry_air_out, :ν)
+D_w               = getfield.(dry_air_out, :D_w)
+k_air             = getfield.(dry_air_out, :k_air)
+Grashof_group     = getfield.(dry_air_out, :Grashof_group)
+blackbody_emission = getfield.(dry_air_out, :blackbody_emission)
+λ_max             = getfield.(dry_air_out, :λ_max)
 
 @testset "R DRYAIR comparisons" begin
     @test all(isapprox.(ρ_air, denair_dry; rtol=1e-9))
@@ -60,15 +60,15 @@ blackbody_emission = dry_air_out.blackbody_emission
     @test all(isapprox.(λ_max, emtmax; rtol=1e-9))
 end 
 
-wet_air_out = wet_air_properties(u"K".(T_airs), P_atmos = fill(P_atmos, length(T_airs)), rh = fill(pars.rh, length(T_airs)))
+wet_air_out = wet_air_properties.(u"K".(T_airs), pars.rh, P_atmos)
 # Extract each component into plain arrays
-P_vap     = wet_air_out.P_vap
-ρ_vap     = wet_air_out.ρ_vap
-r_w       = wet_air_out.r_w
-T_vinc    = wet_air_out.T_vinc
-c_p       = wet_air_out.c_p
-ψ         = wet_air_out.ψ
-rh        = wet_air_out.rh
+P_vap     = getfield.(wet_air_out, :P_vap)
+ρ_vap     = getfield.(wet_air_out, :ρ_vap)
+r_w       = getfield.(wet_air_out, :r_w)
+T_vinc    = getfield.(wet_air_out, :T_vinc)
+c_p       = getfield.(wet_air_out, :c_p)
+ψ         = getfield.(wet_air_out, :ψ)
+rh        = getfield.(wet_air_out, :rh)
 
 @testset "R WETAIR comparisons" begin
     @test all(isapprox.(P_vap, e; rtol=1e-9))

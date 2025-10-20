@@ -40,7 +40,6 @@ function atmospheric_pressure(h::Quantity;
     #g_0::Quantity = g_n,
     M::Quantity = 0.0289644u"kg/mol"
 )
-
     P_a = atm * (1 + (L_ref / T_ref) * h) ^ ((-g_n * M) / (R * L_ref)) #5.2553026003237262u"kg*m^2*J^-1*s^-2"#
 
     return P_a
@@ -58,21 +57,11 @@ Input variables are shown below. The user must supply known values for T_drybulb
 atmosphere is 101 325 pascals). Values for the remaining variables are determined by whether the user has
 either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 
-# TODO fix this desctiption
-(1) Psychrometric data:
-If T_wetbulb is known but not rh, then set rh=-1 and dp=999
-If rh is known but not T_wetbulb then set T_wetbulb=nothing and dp=999
-
-(2) Hygrometric data:
-If T_dew is known then set T_wetublb = nothing and rh = nothing.
-
 # Arguments
 
 - `T_drybulb`: Dry bulb temperature (K or °C)
-- `T_wetbulb`: Wet bulb temperature (K or °C)
 - `rh`: Relative humidity (%)
-- `T_dew`: Dew point temperature (K or °C)
-- `P`: Barometric pressure (Pa)
+- `P_atmos`: Barometric pressure (Pa)
 - `fO2`; fractional O2 concentration in atmosphere, -
 - `fCO2`; fractional CO2 concentration in atmosphere, -
 - `fN2`; fractional N2 concentration in atmosphere, -
@@ -88,110 +77,24 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
 # - `rh`: Relative humidity (%)
 
 """
-@inline function wet_air_properties(T_drybulb; 
-    T_wetbulb=nothing, 
-    T_dew=nothing, 
-    rh=nothing, 
-    P_atmos=101325u"Pa",
+wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
+@inline function wet_air_properties(T_drybulb, rh=100.0, P_atmos=101325u"Pa"; 
     fO2=0.2095,
     fCO2=0.0004,
     fN2=0.79,
     vapour_pressure_equation=GoffGratch(),
 )
-    # scalar input
-    if isa(T_drybulb, Number)
-        return wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2;
-                                  vapour_pressure_equation=vapour_pressure_equation)        
-    end
-
-    # vector/matrix input
-    shp = size(T_drybulb)
-
-    Tw_arr = isnothing(T_wetbulb) ? fill(nothing, shp) :
-             (isa(T_wetbulb, Number) || !isempty(size(T_wetbulb)) ? T_wetbulb : fill(T_wetbulb, shp))
-
-    rh_arr = isnothing(rh) ? fill(nothing, shp) :
-             (isa(rh, Number) || !isempty(size(rh)) ? rh : fill(rh, shp))
-
-    Td_arr = isnothing(T_dew) ? fill(nothing, shp) :
-             (isa(T_dew, Number) || !isempty(size(T_dew)) ? T_dew : fill(T_dew, shp))
-
-    P_arr  = isa(P_atmos, Number) ? fill(P_atmos, shp) : P_atmos
-
-    out = map(T_drybulb, Tw_arr, rh_arr, Td_arr, P_arr) do Td, Tw, rh_, Td_, P
-        if any(ismissing, (Td, Tw, rh_, Td_, P))
-            return missing
-        end
-        wet_air_properties(Td, Tw, rh_, Td_, P, fO2, fCO2, fN2;
-                           vapour_pressure_equation=vapour_pressure_equation)
-    end
-    names_ = propertynames(first(skipmissing(out)))
-    default_nt = (; P_vap=NaN, ρ_vap=NaN, r_w=NaN, T_vinc=NaN,
-                ρ_air=NaN, c_p=NaN, ψ=NaN, rh=NaN)
-    clean_out = [ismissing(x) ? default_nt : x for x in out]
-    return NamedTuple{names_}(
-        tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
-    )
+    return wet_air_properties(T_drybulb, rh, P_atmos, fO2, fCO2, fN2, vapour_pressure_equation)        
 end
 
-@inline function wet_air_properties(
-    T_drybulb, ::Nothing, ::Nothing, T_dew, P_atmos, fO2, fCO2, fN2;
-    vapour_pressure_equation
-)
-    if ismissing(T_drybulb) || ismissing(P_atmos) || ismissing(T_dew)
-        return missing
-    end
-    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
-    P_vap = vapour_pressure(vapour_pressure_equation, u"K"(T_dew))
-    rh = (P_vap / P_vap_sat) * 100
-    return _wet_air_properties(T_drybulb, P_vap, rh, P_atmos, fO2, fCO2, fN2)
-end
-@inline function wet_air_properties(
-    T_drybulb, ::Nothing, rh::Number, ::Nothing, P_atmos, fO2, fCO2, fN2;
-    vapour_pressure_equation
-)
-    if ismissing(T_drybulb) || ismissing(P_atmos) || ismissing(rh)
-        return missing
-    end
-    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
-    P_vap = P_vap_sat * rh * 0.01
-    return _wet_air_properties(T_drybulb, P_vap, rh, P_atmos, fO2, fCO2, fN2)
-end
-@inline function wet_air_properties(
-    T_drybulb, T_wetbulb::Number, ::Nothing, ::Nothing, P_atmos, fO2, fCO2, fN2;
-    vapour_pressure_equation
-)
-    if ismissing(T_drybulb) || ismissing(P_atmos) || ismissing(T_wetbulb)
-        return missing
-    end
-    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
-    δ_bulb = u"K"(T_drybulb - T_wetbulb)
-    δ_P_vap = (0.000660 * (1 + 0.00115 * ustrip(u"°C", T_wetbulb)) *
-               ustrip(u"Pa", P_atmos) * ustrip(u"°C", δ_bulb))u"Pa"
-    P_vap = vapour_pressure(vapour_pressure_equation, u"K"(T_wetbulb)) - δ_P_vap
-    rh = (P_vap / P_vap_sat) * 100
-    return _wet_air_properties(T_drybulb, P_vap, rh, P_atmos, fO2, fCO2, fN2)
-end
-@inline function wet_air_properties(
-    T_drybulb, ::Nothing, ::Nothing, ::Nothing, P_atmos, fO2, fCO2, fN2;
-    vapour_pressure_equation
-)
-    if ismissing(T_drybulb) || ismissing(P_atmos) || ismissing(T_wetbulb)
-        return missing
-    end
-    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
-    P_vap = P_vap_sat
-    rh = 100.0
-    return _wet_air_properties(T_drybulb, P_vap, rh, P_atmos, fO2, fCO2, fN2)
-end
-
-@inline function _wet_air_properties(T_drybulb, P_vap, rh, P_atmos, fO2, fCO2, fN2)
+@inline function wet_air_properties(T_drybulb, rh, P_atmos, fO2, fCO2, fN2, vapour_pressure_equation)
     c_p_H2O_vap = 1864.40u"J/K/kg"
     c_p_dry_air = 1004.84u"J/K/kg"
     f_w = 1.0053
     M_w = (1molH₂O |> u"kg") / 1u"mol"
     M_a = (fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol"
-
+    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
+    P_vap = P_vap_sat * rh * 0.01
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
     ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb))
     ρ_vap = uconvert(u"kg/m^3", ρ_vap)
@@ -210,38 +113,15 @@ end
     dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
 
 """
-dry_air_properties(::Missing; kwargs...) = missing
+dry_air_properties(::Missing, ::Missing; kwargs...) = missing
 #@inline dry_air_properties(T_drybulb; P_atmos=101325u"Pa", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
 #    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-@inline function dry_air_properties(T_drybulb; 
-    P_atmos=101325u"Pa", 
+@inline function dry_air_properties(T_drybulb, P_atmos=101325u"Pa"; 
     fO2=0.2095, 
     fCO2=0.0004, 
     fN2=0.79
 )
-    if isa(T_drybulb, Number)
-        return dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-    end
-
-    # vector/matrix input
-    shp = size(T_drybulb)
-
-    Pa_arr = isnothing(P_atmos) ? fill(nothing, shp) :
-             (isa(P_atmos, Number) || !isempty(size(P_atmos)) ? P_atmos : fill(P_atmos, shp))
-
-    out = map(T_drybulb, Pa_arr) do Td, Pa_
-        if any(ismissing, (Td, Pa_))
-            return missing
-        end
-        dry_air_properties(Td, Pa_, fO2, fCO2, fN2)
-    end
-    names_ = propertynames(first(skipmissing(out)))
-    default_nt = (; ρ_air=NaN, μ=NaN, ν=NaN, D_w=NaN,
-        k_air=NaN, Grashof_group=NaN, blackbody_emission=NaN, λ_max=NaN)
-    clean_out = [ismissing(x) ? default_nt : x for x in out]
-    return NamedTuple{names_}(
-        tuple(map(n -> map(r -> getproperty(r, n), clean_out), names_)...)
-    )
+    return dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
 end    
 @inline function dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
     M_a = ((fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) |> u"kg") / 1u"mol" # molar mass of air
