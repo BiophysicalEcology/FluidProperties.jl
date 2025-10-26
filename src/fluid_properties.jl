@@ -90,17 +90,17 @@ end
 @inline function wet_air_properties(T_drybulb, rh, P_atmos, fO2, fCO2, fN2, vapour_pressure_equation)
     c_p_H2O_vap = 1864.40u"J/K/kg"
     c_p_dry_air = 1004.84u"J/K/kg"
-    f_w = 1.0053
+    f_w = 1.0053  # (-) correction factor for the departure of the mixture of air and water vapour from ideal gas laws
     M_w = (1molH₂O |> u"kg") / 1u"mol"
     M_a = (fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol"
     P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
     P_vap = P_vap_sat * rh * 0.01
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
-    ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb))
+    ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb)) # TODO 0.998 a correction factor?
     ρ_vap = uconvert(u"kg/m^3", ρ_vap)
     T_vir = u"K"(T_drybulb) * ((1 + r_w / (M_w / M_a)) / (1 + r_w))
     T_vinc = T_vir - u"K"(T_drybulb)
-    ρ_air = (M_a / Unitful.R) * P_atmos / (0.999 * T_vir)
+    ρ_air = (M_a / Unitful.R) * P_atmos / (0.999 * T_vir) # TODO 0.999 a correction factor?
     ρ_air = uconvert(u"kg/m^3", ρ_air)
     c_p = (c_p_dry_air + (r_w * c_p_H2O_vap)) / (1 + r_w)
     ψ = rh <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T_drybulb) * log(rh * 0.01))u"Pa"
