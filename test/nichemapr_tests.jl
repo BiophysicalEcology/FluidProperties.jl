@@ -60,7 +60,8 @@ blackbody_emission = getindex.(dry_air_out, 8)
     @test all(isapprox.(λ_max, emtmax; rtol=1e-9))
 end 
 
-wet_air_out = wet_air_properties.(u"K".(T_airs), P_atmos = P_atmos[1], rh = pars.rh)
+# note FluidProperties.jl works with fractional relative humidity hence / 100.
+wet_air_out = wet_air_properties.(u"K".(T_airs), P_atmos = P_atmos[1], rh = pars.rh / 100.)
 # Extract each component into plain arrays
 P_vap     = getindex.(wet_air_out, 1)
 P_vap_sat = getindex.(wet_air_out, 2)

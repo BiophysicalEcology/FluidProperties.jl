@@ -69,7 +69,7 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
 
 - `T_drybulb`: Dry bulb temperature (K or °C)
 - `T_wetbulb`: Wet bulb temperature (K or °C)
-- `rh`: Relative humidity (%)
+- `rh`: Relative humidity (fractional)
 - `T_dew`: Dew point temperature (K or °C)
 - `P`: Barometric pressure (Pa)
 - `fO2`; fractional O2 concentration in atmosphere, -
@@ -84,7 +84,7 @@ If T_dew is known then set T_wetublb = nothing and rh = nothing.
 # - `ρ_air`: Density of the air (kg m-3)
 # - `c_p`: Specific heat of air at constant pressure (J kg-1 K-1)
 # - `ψ`: Water potential (Pa)
-# - `rh`: Relative humidity (%)
+# - `rh`: Relative humidity (fractional)
 
 """
 @inline function wet_air_properties(T_drybulb; 
@@ -110,21 +110,20 @@ end
         if isnothing(rh)
             if isnothing(T_wetbulb) # We assume T_wetbulb == T_drybulb
                 P_vap = P_vap_sat
-                rh = 100.0
+                rh = 1.0
             else
                 δ_bulb = u"K"(T_drybulb - T_wetbulb)
                 δ_P_vap = (0.000660 * (1 + 0.00115 * ustrip(u"°C", T_wetbulb)) * ustrip(u"Pa", P) * ustrip(u"°C", δ_bulb))u"Pa"
                 P_vap = vapour_pressure(vapour_pressure_equation, u"K"(T_wetbulb)) - δ_P_vap
-                rh = (P_vap / P_vap_sat) * 100
+                rh = (P_vap / P_vap_sat)
             end
         else
-            P_vap = P_vap_sat * rh * 0.01
+            P_vap = P_vap_sat * rh
         end
     else
         P_vap = vapour_pressure(vapour_pressure_equation, u"K"(T_dew))
-        # TODO what are these * and / 100
         # And why dont we check isnothing(rh) here as well?
-        rh = (P_vap / P_vap_sat) * 100
+        rh = (P_vap / P_vap_sat)
     end
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
     ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb)) # TODO 0.998 a correction factor?
@@ -137,7 +136,7 @@ end
     ψ = if min(rh) <= 0
         -999.0u"Pa"
     else
-        (4.615e+5 * ustrip(u"K", T_drybulb) * log(rh * 0.01))u"Pa"
+        (4.615e+5 * ustrip(u"K", T_drybulb) * log(rh))u"Pa"
     end
 
     return (; P_vap, P_vap_sat, ρ_vap, r_w, T_vinc, ρ_air, c_p, ψ, rh)
