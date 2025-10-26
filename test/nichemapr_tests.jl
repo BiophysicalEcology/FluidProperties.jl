@@ -82,10 +82,10 @@ end
 water_properties_out = water_properties.(u"K".(T_airs))
 
 # Extract each component into plain arrays
-c_p_H2O           = getindex.(water_properties_out, 1)
-ρ_H2O             = getindex.(water_properties_out, 2)
-k_H2O             = getindex.(water_properties_out, 3)
-μ_H2O             = getindex.(water_properties_out, 4)
+c_p_H2O           = getindex.(water_properties_out, :c_p_H2O)
+ρ_H2O             = getindex.(water_properties_out, :ρ_H2O)
+k_H2O             = getindex.(water_properties_out, :k_H2O)
+μ_H2O             = getindex.(water_properties_out, :μ_H2O)
 
 @testset "R WATERPROP comparisons" begin
     @test all(isapprox.(c_p_H2O, CP_water; rtol=1e-9))

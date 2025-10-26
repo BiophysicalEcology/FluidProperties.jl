@@ -114,9 +114,7 @@ end
 
 """
 dry_air_properties(::Missing, ::Missing; kwargs...) = missing
-#@inline dry_air_properties(T_drybulb; P_atmos=101325u"Pa", fO2=0.2095, fCO2=0.0004, fN2=0.79) = 
-#    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-@inline function dry_air_properties(T_drybulb, P_atmos=101325u"Pa"; 
+@inline function dry_air_properties(T_drybulb::Number, P_atmos=101325u"Pa"; 
     fO2=0.2095, 
     fCO2=0.0004, 
     fN2=0.79
