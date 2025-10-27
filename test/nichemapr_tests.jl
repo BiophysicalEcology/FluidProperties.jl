@@ -60,7 +60,9 @@ blackbody_emission = getfield.(dry_air_out, :blackbody_emission)
     @test all(isapprox.(λ_max, emtmax; rtol=1e-9))
 end 
 
-wet_air_out = wet_air_properties.(u"K".(T_airs), pars.rh, P_atmos)
+# note FluidProperties.jl works with fractional relative humidity hence / 100.
+wet_air_out = wet_air_properties.(u"K".(T_airs), pars.rh / 100., P_atmos)
+
 # Extract each component into plain arrays
 P_vap     = getfield.(wet_air_out, :P_vap)
 ρ_vap     = getfield.(wet_air_out, :ρ_vap)

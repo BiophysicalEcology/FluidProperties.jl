@@ -60,7 +60,7 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 # Arguments
 
 - `T_drybulb`: Dry bulb temperature (K or °C)
-- `rh`: Relative humidity (%)
+- `rh`: Relative humidity (fractional)
 - `P_atmos`: Barometric pressure (Pa)
 - `fO2`; fractional O2 concentration in atmosphere, -
 - `fCO2`; fractional CO2 concentration in atmosphere, -
@@ -74,7 +74,7 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 # - `ρ_air`: Density of the air (kg m-3)
 # - `c_p`: Specific heat of air at constant pressure (J kg-1 K-1)
 # - `ψ`: Water potential (Pa)
-# - `rh`: Relative humidity (%)
+# - `rh`: Relative humidity (fractional)
 
 """
 wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
@@ -94,7 +94,7 @@ end
     M_w = (1molH₂O |> u"kg") / 1u"mol"
     M_a = (fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol"
     P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
-    P_vap = P_vap_sat * rh * 0.01
+    P_vap = P_vap_sat * rh
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
     ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb)) # TODO 0.998 a correction factor?
     ρ_vap = uconvert(u"kg/m^3", ρ_vap)
@@ -103,7 +103,7 @@ end
     ρ_air = (M_a / Unitful.R) * P_atmos / (0.999 * T_vir) # TODO 0.999 a correction factor?
     ρ_air = uconvert(u"kg/m^3", ρ_air)
     c_p = (c_p_dry_air + (r_w * c_p_H2O_vap)) / (1 + r_w)
-    ψ = rh <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T_drybulb) * log(rh * 0.01))u"Pa"
+    ψ = rh <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T_drybulb) * log(rh))u"Pa"
 
     return (; P_vap, ρ_vap, r_w, T_vinc, ρ_air, c_p, ψ, rh)
 end
