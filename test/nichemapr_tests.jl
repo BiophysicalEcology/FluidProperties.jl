@@ -36,18 +36,18 @@ DENSTY_water = (DataFrame(CSV.File("$testdir/data/DENSTY_water.csv"))[:, 2]) .* 
 THCOND_water = (DataFrame(CSV.File("$testdir/data/THCOND_water.csv"))[:, 2]) .* u"W/m/K"
 VISDYN_water = (DataFrame(CSV.File("$testdir/data/VISDYN_water.csv"))[:, 2]) .* u"kg * m^-1 * s^-1"
 
-dry_air_out = dry_air_properties.(u"K".(T_airs), elevation=(pars.elevation)u"m")
+P_atmos = atmospheric_pressure((pars.elevation)u"m")
+dry_air_out = dry_air_properties.(u"K".(T_airs), P_atmos)
 
 # Extract each component into plain arrays
-P_atmos           = getindex.(dry_air_out, 1)
-ρ_air             = getindex.(dry_air_out, 2)
-μ                 = getindex.(dry_air_out, 3)
-ν                 = getindex.(dry_air_out, 4)
-D_w               = getindex.(dry_air_out, 5)
-k_air             = getindex.(dry_air_out, 6)
-Grashof_group     = getindex.(dry_air_out, 7)
-blackbody_emission = getindex.(dry_air_out, 8)
-λ_max             = getindex.(dry_air_out, 9)
+ρ_air             = getfield.(dry_air_out, :ρ_air)
+μ                 = getfield.(dry_air_out, :μ)
+ν                 = getfield.(dry_air_out, :ν)
+D_w               = getfield.(dry_air_out, :D_w)
+k_air             = getfield.(dry_air_out, :k_air)
+Grashof_group     = getfield.(dry_air_out, :Grashof_group)
+blackbody_emission = getfield.(dry_air_out, :blackbody_emission)
+λ_max             = getfield.(dry_air_out, :λ_max)
 
 @testset "R DRYAIR comparisons" begin
     @test all(isapprox.(ρ_air, denair_dry; rtol=1e-9))
@@ -61,25 +61,22 @@ blackbody_emission = getindex.(dry_air_out, 8)
 end 
 
 # note FluidProperties.jl works with fractional relative humidity hence / 100.
-wet_air_out = wet_air_properties.(u"K".(T_airs), P_atmos = P_atmos[1], rh = pars.rh / 100.)
+wet_air_out = wet_air_properties.(u"K".(T_airs), pars.rh / 100., P_atmos)
+
 # Extract each component into plain arrays
-P_vap     = getindex.(wet_air_out, 1)
-P_vap_sat = getindex.(wet_air_out, 2)
-ρ_vap     = getindex.(wet_air_out, 3)
-r_w       = getindex.(wet_air_out, 4)
-T_vinc    = getindex.(wet_air_out, 5)
-ρ_air_wet = getindex.(wet_air_out, 6)
-c_p       = getindex.(wet_air_out, 7)
-ψ         = getindex.(wet_air_out, 8)
-rh        = getindex.(wet_air_out, 9)
+P_vap     = getfield.(wet_air_out, :P_vap)
+ρ_vap     = getfield.(wet_air_out, :ρ_vap)
+r_w       = getfield.(wet_air_out, :r_w)
+T_vinc    = getfield.(wet_air_out, :T_vinc)
+c_p       = getfield.(wet_air_out, :c_p)
+ψ         = getfield.(wet_air_out, :ψ)
+rh        = getfield.(wet_air_out, :rh)
 
 @testset "R WETAIR comparisons" begin
     @test all(isapprox.(P_vap, e; rtol=1e-9))
-    @test all(isapprox.(P_vap_sat, esat; rtol=1e-9))
     @test all(isapprox.(ρ_vap, vd; rtol=1e-9))
     @test all(isapprox.(r_w, rw; rtol=1e-9))
     @test all(isapprox.(T_vinc, tvinc; rtol=1e-9))
-    @test all(isapprox.(ρ_air_wet, denair_wet; rtol=1e-9))
     @test all(isapprox.(c_p, c_p_NMR; rtol=1e-9))
     @test all(isapprox.(ψ, wtrpot; rtol=1e-9))
 end 
@@ -87,10 +84,10 @@ end
 water_properties_out = water_properties.(u"K".(T_airs))
 
 # Extract each component into plain arrays
-c_p_H2O           = getindex.(water_properties_out, 1)
-ρ_H2O             = getindex.(water_properties_out, 2)
-k_H2O             = getindex.(water_properties_out, 3)
-μ_H2O             = getindex.(water_properties_out, 4)
+c_p_H2O           = getindex.(water_properties_out, :c_p_H2O)
+ρ_H2O             = getindex.(water_properties_out, :ρ_H2O)
+k_H2O             = getindex.(water_properties_out, :k_H2O)
+μ_H2O             = getindex.(water_properties_out, :μ_H2O)
 
 @testset "R WATERPROP comparisons" begin
     @test all(isapprox.(c_p_H2O, CP_water; rtol=1e-9))
