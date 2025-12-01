@@ -27,7 +27,6 @@ assuming a constant temperature lapse rate (standard tropospheric approximation)
 - The universal gas constant `R` is used from the `Unitful` package.
 
 # Example
-```julia
 using Unitful
 
 P = atmospheric_pressure(1500u"m")
@@ -138,7 +137,7 @@ end
     blackbody_emission = σ * (u"K"(T_drybulb)^4) # W/m2
     λ_max = 2.897e-3u"K*m" / (u"K"(T_drybulb)) # wavelength of maximum emission, m
 
-    return (; ρ_air, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max)
+    return (; ρ_air, M_a, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max)
 end
 
 """
