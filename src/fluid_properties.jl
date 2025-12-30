@@ -77,20 +77,31 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 
 """
 wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
-@inline function wet_air_properties(T_drybulb, rh=1.0, P_atmos=101325u"Pa"; 
+wet_air_properties(::Missing; kwargs...) = missing
+@inline wet_air_properties(T, rh, P;
     fO2=0.2095,
     fCO2=0.0004,
     fN2=0.79,
     vapour_pressure_equation=GoffGratch(),
-)
-    return wet_air_properties(T_drybulb, rh, P_atmos, fO2, fCO2, fN2, vapour_pressure_equation)        
-end
+) = wet_air_properties(
+        T, rh, P,
+        fO2, fCO2, fN2,
+        vapour_pressure_equation
+    )
 
-@inline function wet_air_properties(T_drybulb, rh, P_atmos, fO2, fCO2, fN2, vapour_pressure_equation)
+@inline function wet_air_properties(
+    T_drybulb::Quantity,
+    rh::Real,
+    P_atmos::Quantity,
+    fO2,
+    fCO2,
+    fN2,
+    vapour_pressure_equation,
+    )
     c_p_H2O_vap = 1864.40u"J/K/kg"
     c_p_dry_air = 1004.84u"J/K/kg"
     f_w = 1.0053  # (-) correction factor for the departure of the mixture of air and water vapour from ideal gas laws
-    M_w = (1molH₂O |> u"kg") / 1u"mol"
+    M_w = u"kg"(1molH₂O) / 1u"mol"
     M_a = (fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol"
     P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
     P_vap = P_vap_sat * rh
@@ -113,15 +124,29 @@ end
 
 """
 dry_air_properties(::Missing, ::Missing; kwargs...) = missing
-@inline function dry_air_properties(T_drybulb::Number, P_atmos=101325u"Pa"; 
-    fO2=0.2095, 
-    fCO2=0.0004, 
-    fN2=0.79
+dry_air_properties(::Missing; kwargs...) = missing
+
+@inline function dry_air_properties(
+    T_drybulb::Quantity,
+    P_atmos::Quantity;
+    fO2=0.2095,
+    fCO2=0.0004,
+    fN2=0.79,
 )
-    return dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-end    
-@inline function dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-    M_a = ((fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) |> u"kg") / 1u"mol" # molar mass of air
+    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
+end
+
+@inline function dry_air_properties(
+    T_drybulb::Quantity;
+    P_atmos=101325u"Pa",
+    fO2=0.2095,
+    fCO2=0.0004,
+    fN2=0.79,
+)
+    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
+end   
+@inline function dry_air_properties(T_drybulb::Quantity, P_atmos::Quantity, fO2, fCO2, fN2)
+    M_a = u"kg"(fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol" # molar mass of air
     ρ_air = (M_a / R) * P_atmos / (u"K"(T_drybulb)) # density of air
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
