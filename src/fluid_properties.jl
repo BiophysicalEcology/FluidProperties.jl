@@ -1,4 +1,21 @@
 """
+    GasFractions
+
+Atmospheric gas composition as mole fractions.
+Default values represent standard dry air.
+
+# Fields
+- `O2` — Oxygen fraction (default: 0.2095)
+- `CO2` — Carbon dioxide fraction (default: 0.0004)
+- `N2` — Nitrogen fraction (default: 0.7901)
+"""
+Base.@kwdef struct GasFractions{O,C,N}
+    O2::O = 0.2095
+    CO2::C = 0.0004
+    N2::N = 0.79
+end
+
+"""
     atmospheric_pressure(h::Quantity;
                  h_ref::Quantity = 0u"m",
                  P_ref::Quantity = 101325u"Pa",
@@ -45,64 +62,27 @@ function atmospheric_pressure(h::Quantity;
 end
 
 """
-    wet_air_properties(T_drybulb, T_wetbulb, rh, T_dew, P_atmos, fO2, fCO2, fN2)
-    wet_air_properties(T_drybulb; kw...)
-
-Calculates several properties of humid air as output variables below. The program
-is based on equations from List, R. J. 1971. Smithsonian Meteorological Tables. Smithsonian
-Institution Press. Washington, DC. wet_air_properties must be used in conjunction with function vapour_pressure.
-
-Input variables are shown below. The user must supply known values for T_drybulb and P (P at one standard
-atmosphere is 101 325 pascals). Values for the remaining variables are determined by whether the user has
-either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
-
-# Arguments
-
-- `T_drybulb`: Dry bulb temperature (K or °C)
-- `rh`: Relative humidity (fractional)
-- `P_atmos`: Barometric pressure (Pa)
-- `fO2`; fractional O2 concentration in atmosphere, -
-- `fCO2`; fractional CO2 concentration in atmosphere, -
-- `fN2`; fractional N2 concentration in atmosphere, -
-# - `P_vap`: Vapour pressure (Pa)
-# - `P_vap_sat`: Saturation vapour pressure (Pa)
-# - `ρ_vap`: Vapour density (kg m-3)
-# - `r_w Mixing`: ratio (kg kg-1)
-# - `T_vir`: Virtual temperature (K)
-# - `T_vinc`: Virtual temperature increment (K)
-# - `ρ_air`: Density of the air (kg m-3)
-# - `c_p`: Specific heat of air at constant pressure (J kg-1 K-1)
-# - `ψ`: Water potential (Pa)
-# - `rh`: Relative humidity (fractional)
-
+    wet_air_properties(T, rh, P; gasfrac=GasFractions(), vapour_pressure_equation=GoffGratch())
 """
 wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
 wet_air_properties(::Missing; kwargs...) = missing
 @inline wet_air_properties(T, rh, P;
-    fO2=0.2095,
-    fCO2=0.0004,
-    fN2=0.79,
+    gasfrac::GasFractions=GasFractions(),
     vapour_pressure_equation=GoffGratch(),
-) = wet_air_properties(
-        T, rh, P,
-        fO2, fCO2, fN2,
-        vapour_pressure_equation
-    )
+) = wet_air_properties(T, rh, P, gasfrac, vapour_pressure_equation)
 
 @inline function wet_air_properties(
     T_drybulb::Quantity,
     rh::Real,
     P_atmos::Quantity,
-    fO2,
-    fCO2,
-    fN2,
+    gasfrac::GasFractions,
     vapour_pressure_equation,
-    )
+)
     c_p_H2O_vap = 1864.40u"J/K/kg"
     c_p_dry_air = 1004.84u"J/K/kg"
     f_w = 1.0053  # (-) correction factor for the departure of the mixture of air and water vapour from ideal gas laws
     M_w = u"kg"(1molH₂O) / 1u"mol"
-    M_a = (fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol"
+    M_a = (gasfrac.O2 * molO₂ + gasfrac.CO2 * molCO₂ + gasfrac.N2 * molN₂) / 1u"mol"
     P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
     P_vap = P_vap_sat * rh
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
@@ -119,34 +99,19 @@ wet_air_properties(::Missing; kwargs...) = missing
 end
 
 """
-    dry_air_properties(T_drybulb; kw...)
-    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-
+    dry_air_properties(T, P; gasfrac=GasFractions())
 """
 dry_air_properties(::Missing, ::Missing; kwargs...) = missing
 dry_air_properties(::Missing; kwargs...) = missing
 
-@inline function dry_air_properties(
-    T_drybulb::Quantity,
-    P_atmos::Quantity;
-    fO2=0.2095,
-    fCO2=0.0004,
-    fN2=0.79,
-)
-    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-end
+@inline dry_air_properties(T, P; gasfrac::GasFractions=GasFractions()) =
+    dry_air_properties(T, P, gasfrac)
 
-@inline function dry_air_properties(
-    T_drybulb::Quantity;
-    P_atmos=101325u"Pa",
-    fO2=0.2095,
-    fCO2=0.0004,
-    fN2=0.79,
-)
-    dry_air_properties(T_drybulb, P_atmos, fO2, fCO2, fN2)
-end   
-@inline function dry_air_properties(T_drybulb::Quantity, P_atmos::Quantity, fO2, fCO2, fN2)
-    M_a = u"kg"(fO2*molO₂ + fCO2*molCO₂ + fN2*molN₂) / 1u"mol" # molar mass of air
+@inline dry_air_properties(T; P_atmos=101325u"Pa", gasfrac::GasFractions=GasFractions()) =
+    dry_air_properties(T, P_atmos, gasfrac)
+
+@inline function dry_air_properties(T_drybulb::Quantity, P_atmos::Quantity, gasfrac::GasFractions)
+    M_a = u"kg"(gasfrac.O2 * molO₂ + gasfrac.CO2 * molCO₂ + gasfrac.N2 * molN₂) / 1u"mol" # molar mass of air
     ρ_air = (M_a / R) * P_atmos / (u"K"(T_drybulb)) # density of air
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
