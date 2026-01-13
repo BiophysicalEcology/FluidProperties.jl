@@ -20,6 +20,90 @@ Base.@kwdef struct GasFractions{O,C,N}
 end
 
 """
+    DryAirProperties
+
+    DryAirProperties(; density, molar_mass, dynamic_viscosity, ...)
+
+Properties of dry air at a given temperature and pressure.
+Returned by [`dry_air_properties`](@ref).
+
+## Fields
+
+- `density`: Air density (kg/m³)
+- `molar_mass`: Molar mass of air (kg/mol)
+- `dynamic_viscosity`: Dynamic viscosity (kg/m/s)
+- `kinematic_viscosity`: Kinematic viscosity (m²/s)
+- `thermal_conductivity`: Thermal conductivity (W/m/K)
+- `vapour_diffusivity`: Water vapour diffusivity in air (m²/s)
+- `grashof_coefficient`: Grashof coefficient, multiply by ΔT·L³ for Grashof number (1/m³/K)
+- `blackbody_emission`: Blackbody radiation at temperature (W/m²)
+- `peak_wavelength`: Wien's law peak emission wavelength (m)
+"""
+@kwdef struct DryAirProperties{D,M,DV,KV,TC,VD,GR,BB,PW}
+    density::D
+    molar_mass::M
+    dynamic_viscosity::DV
+    kinematic_viscosity::KV
+    thermal_conductivity::TC
+    vapour_diffusivity::VD
+    grashof_coefficient::GR
+    blackbody_emission::BB
+    peak_wavelength::PW
+end
+
+"""
+    WaterProperties
+
+    WaterProperties(; density, specific_heat, thermal_conductivity, dynamic_viscosity)
+
+Physical properties of liquid water at a given temperature.
+Returned by [`water_properties`](@ref).
+
+## Fields
+
+- `density`: Water density (kg/m³)
+- `specific_heat`: Specific heat capacity (J/kg/K)
+- `thermal_conductivity`: Thermal conductivity (W/m/K)
+- `dynamic_viscosity`: Dynamic viscosity (kg/m/s)
+"""
+@kwdef struct WaterProperties{D,SH,TC,DV}
+    density::D
+    specific_heat::SH
+    thermal_conductivity::TC
+    dynamic_viscosity::DV
+end
+
+"""
+    WetAirProperties
+
+    WetAirProperties(; density, specific_heat, vapour_pressure, ...)
+
+Properties of humid air at a given temperature, relative humidity, and pressure.
+Returned by [`wet_air_properties`](@ref).
+
+## Fields
+
+- `density`: Air density (kg/m³)
+- `specific_heat`: Specific heat at constant pressure (J/kg/K)
+- `vapour_pressure`: Partial pressure of water vapour (Pa)
+- `vapour_density`: Water vapour density (kg/m³)
+- `mixing_ratio`: Mass of water vapour per mass of dry air (kg/kg)
+- `relative_humidity`: Relative humidity (fractional, 0-1)
+- `water_potential`: Water potential (Pa)
+- `virtual_temp_increment`: Virtual temperature minus actual temperature (K)
+"""
+@kwdef struct WetAirProperties{D,SH,VP,VD,MR,RH,WP,VTI}
+    density::D
+    specific_heat::SH
+    vapour_pressure::VP
+    vapour_density::VD
+    mixing_ratio::MR
+    relative_humidity::RH
+    water_potential::WP
+    virtual_temp_increment::VTI
+end
+
+"""
     atmospheric_pressure(h::Quantity;
                  h_ref::Quantity = 0u"m",
                  P_ref::Quantity = 101325u"Pa",
@@ -103,7 +187,6 @@ wet_air_properties(::Missing; kwargs...) = missing
     gasfrac::GasFractions=GasFractions(),
     vapour_pressure_equation=GoffGratch(),
 ) = wet_air_properties(T, rh, P, gasfrac, vapour_pressure_equation)
-
 @inline function wet_air_properties(
     T_drybulb::Quantity,
     rh::Real,
@@ -111,25 +194,56 @@ wet_air_properties(::Missing; kwargs...) = missing
     gasfrac::GasFractions,
     vapour_pressure_equation,
 )
+    (; fO2, fCO2, fN2) = gasfrac
+    T = u"K"(T_drybulb)
+    P = P_atmos
+
+    # Constants
     c_p_H2O_vap = 1864.40u"J/K/kg"
     c_p_dry_air = 1004.84u"J/K/kg"
-    f_w = 1.0053  # (-) correction factor for the departure of the mixture of air and water vapour from ideal gas laws
-    M_w = u"kg"(1molH₂O) / 1u"mol"
-    (; fO2, fCO2, fN2) = gasfrac
-    M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
-    P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
-    P_vap = P_vap_sat * rh
-    r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
-    ρ_vap = P_vap * M_w / (0.998 * Unitful.R * u"K"(T_drybulb)) # TODO 0.998 a correction factor?
-    ρ_vap = uconvert(u"kg/m^3", ρ_vap)
-    T_vir = u"K"(T_drybulb) * ((1 + r_w / (M_w / M_a)) / (1 + r_w))
-    T_vinc = T_vir - u"K"(T_drybulb)
-    ρ_air = (M_a / Unitful.R) * P_atmos / (0.999 * T_vir) # TODO 0.999 a correction factor?
-    ρ_air = uconvert(u"kg/m^3", ρ_air)
-    c_p = (c_p_dry_air + (r_w * c_p_H2O_vap)) / (1 + r_w)
-    ψ = rh <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T_drybulb) * log(rh))u"Pa"
+    f_w = 1.0053  # correction factor for departure from ideal gas laws
 
-    return (; P_vap, ρ_vap, r_w, T_vinc, ρ_air, c_p, ψ, rh)
+    # Molar masses
+    M_w = u"kg"(1molH₂O) / 1u"mol"  # water
+    M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"  # air
+
+    # Vapour pressure
+    P_sat = FluidProperties.vapour_pressure(vapour_pressure_equation, T)
+    P_v = P_sat * rh
+
+    # Mixing ratio
+    r = ((M_w / M_a) * f_w * P_v) / (P - f_w * P_v)
+    mixing_ratio = r
+
+    # Vapour density
+    ρ_v = P_v * M_w / (0.998 * Unitful.R * T)
+    vapour_density = uconvert(u"kg/m^3", ρ_v)
+
+    # Virtual temperature and increment
+    T_vir = T * ((1 + r / (M_w / M_a)) / (1 + r))
+    virtual_temp_increment = T_vir - T
+
+    # Air density
+    ρ = (M_a / Unitful.R) * P / (0.999 * T_vir)
+    density = uconvert(u"kg/m^3", ρ)
+
+    # Specific heat
+    specific_heat = (c_p_dry_air + (r * c_p_H2O_vap)) / (1 + r)
+
+    # Water potential
+    water_potential = rh <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T) * log(rh))u"Pa"
+
+
+    return WetAirProperties(;
+        density,
+        specific_heat,
+        vapour_pressure=P_v,
+        vapour_density,
+        mixing_ratio,
+        relative_humidity=rh,
+        water_potential,
+        virtual_temp_increment,
+    )
 end
 
 """
@@ -145,24 +259,51 @@ dry_air_properties(::Missing; kwargs...) = missing
     dry_air_properties(T, P_atmos, gasfrac)
 
 @inline function dry_air_properties(T_drybulb::Quantity, P_atmos::Quantity, gasfrac::GasFractions)
+    T = u"K"(T_drybulb)
+    P = P_atmos
+
+    # Molar mass of air
     (; fO2, fCO2, fN2) = gasfrac
     M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
-    ρ_air = (M_a / R) * P_atmos / (u"K"(T_drybulb)) # density of air
-    ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
-    μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
-    T_0 = 296.16u"K" # reference temperature
-    C = 120.0u"K" # Sutherland's constant
-    μ = (μ_0 * (T_0 + C) / (u"K"(T_drybulb) + C)) * (u"K"(T_drybulb) / T_0)^1.5 # dynamic viscosity, kg / m.s
-    ν = μ / ρ_air # kinematic viscosity m2 / s or J.s/kg
-    D_0 = 2.26e-5u"m^2/s" # reference molecular diffusivity of water vapour at 273.15 K
-    D_w = D_0 * ((u"K"(T_drybulb) / 273.15u"K")^1.81) * (1.e5u"Pa" / P_atmos) # vapour diffusivity m2 / s
-    k_air = (0.02425 + (7.038e-5 * ustrip(u"°C", T_drybulb)))u"W/m/K" # thermal conductivity of air
-    β = 1 / u"K"(T_drybulb) # thermal expansion coefficient
-    Grashof_group = g_n * β / (ν^2) # multipy by ΔT L^3 to get Grashof number, 1 / m3.K
-    blackbody_emission = σ * (u"K"(T_drybulb)^4) # W/m2
-    λ_max = 2.897e-3u"K*m" / (u"K"(T_drybulb)) # wavelength of maximum emission, m
 
-    return (; ρ_air, M_a, μ, ν, D_w, k_air, Grashof_group, blackbody_emission, λ_max)
+    # Density
+    ρ = uconvert(u"kg/m^3", (M_a / R) * P / T)
+
+    # Dynamic viscosity (Sutherland's formula)
+    μ_0 = 1.8325e-5u"kg/m/s"  # reference dynamic viscosity
+    T_0 = 296.16u"K"          # reference temperature
+    C = 120.0u"K"             # Sutherland's constant
+    μ = (μ_0 * (T_0 + C) / (T + C)) * (T / T_0)^1.5
+
+    # Kinematic viscosity
+    ν = μ / ρ
+
+    # Thermal conductivity
+    thermal_conductivity = (0.02425 + (7.038e-5 * ustrip(u"°C", T_drybulb)))u"W/m/K"
+
+    # Vapour diffusivity
+    D_0 = 2.26e-5u"m^2/s"  # reference at 273.15 K
+    vapour_diffusivity = D_0 * ((T / 273.15u"K")^1.81) * (1.e5u"Pa" / P)
+
+    # Grashof coefficient (multiply by ΔT·L³ to get Grashof number)
+    β = 1 / T  # thermal expansion coefficient
+    grashof_coefficient = g_n * β / (ν^2)
+
+    # Blackbody radiation
+    blackbody_emission = σ * T^4
+    peak_wavelength = 2.897e-3u"K*m" / T
+
+    return DryAirProperties(;
+        density=ρ,
+        molar_mass=M_a,
+        dynamic_viscosity=μ,
+        kinematic_viscosity=ν,
+        thermal_conductivity,
+        vapour_diffusivity,
+        grashof_coefficient,
+        blackbody_emission,
+        peak_wavelength,
+    )
 end
 
 """
@@ -253,10 +394,10 @@ function water_properties(T::Quantity)
     # Dynamic viscosity (kg/m·s)
     μ = (0.0017515 - 4.31502e-5 * T + 3.71431e-7 * T^2) * u"kg/m/s"
 
-    return (;
-        c_p_H2O = c_p,
-        ρ_H2O = ρ,
-        k_H2O = K,
-        μ_H2O = μ,
+    return WaterProperties(;
+        density=ρ,
+        specific_heat=c_p,
+        thermal_conductivity=K,
+        dynamic_viscosity=μ,
     )
 end
