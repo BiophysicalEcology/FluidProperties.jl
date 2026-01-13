@@ -12,7 +12,7 @@ const atm = uconvert(u"Pa", 1Unitful.atm)
 
 export atmospheric_pressure, dry_air_properties, enthalpy_of_vaporisation, molar_enthalpy_of_vaporisation
 export vapour_pressure, water_properties, wet_air_properties
-export GasFractions
+export GasFractions, DryAirProperties, WetAirProperties, WaterProperties
 
 @compound H2O
 @compound O2
