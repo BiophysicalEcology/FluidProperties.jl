@@ -1,22 +1,22 @@
 """
     GasFractions
 
-    GasFractions(O2, CO2, N2)
-    GasFractions(; O2, CO2, N2)
+    GasFractions(fO2, fCO2, fN2)
+    GasFractions(; fO2, fCO2, fN2)
 
 Atmospheric gas composition as mole fractions.
 Default values represent standard dry air.
 
 ## Fields / Keywords
 
-- `O2`: Oxygen fraction (default: 0.2095)
-- `CO2`: Carbon dioxide fraction (default: 0.0004)
-- `N2`: Nitrogen fraction (default: 0.79)
+- `fO2`: Oxygen fraction (default: 0.2095)
+- `fCO2`: Carbon dioxide fraction (default: 0.0004)
+- `fN2`: Nitrogen fraction (default: 0.79)
 """
 Base.@kwdef struct GasFractions{O,C,N}
-    O2::O = 0.2095
-    CO2::C = 0.0004
-    N2::N = 0.79
+    fO2::O = 0.2095
+    fCO2::C = 0.0004
+    fN2::N = 0.79
 end
 
 """
@@ -115,7 +115,8 @@ wet_air_properties(::Missing; kwargs...) = missing
     c_p_dry_air = 1004.84u"J/K/kg"
     f_w = 1.0053  # (-) correction factor for the departure of the mixture of air and water vapour from ideal gas laws
     M_w = u"kg"(1molH₂O) / 1u"mol"
-    M_a = (gasfrac.O2 * molO₂ + gasfrac.CO2 * molCO₂ + gasfrac.N2 * molN₂) / 1u"mol"
+    (; fO2, fCO2, fN2) = gasfrac
+    M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
     P_vap_sat = vapour_pressure(vapour_pressure_equation, u"K"(T_drybulb))
     P_vap = P_vap_sat * rh
     r_w = ((M_w / M_a) * f_w * P_vap) / (P_atmos - f_w * P_vap)
@@ -144,7 +145,8 @@ dry_air_properties(::Missing; kwargs...) = missing
     dry_air_properties(T, P_atmos, gasfrac)
 
 @inline function dry_air_properties(T_drybulb::Quantity, P_atmos::Quantity, gasfrac::GasFractions)
-    M_a = u"kg"(gasfrac.O2 * molO₂ + gasfrac.CO2 * molCO₂ + gasfrac.N2 * molN₂) / 1u"mol" # molar mass of air
+    (; fO2, fCO2, fN2) = gasfrac
+    M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
     ρ_air = (M_a / R) * P_atmos / (u"K"(T_drybulb)) # density of air
     ρ_air = uconvert(u"kg/m^3", ρ_air) # simplify units
     μ_0 = 1.8325e-5u"kg/m/s" # reference dynamic viscosity
