@@ -1,13 +1,17 @@
 """
     GasFractions
 
+    GasFractions(O2, CO2, N2)
+    GasFractions(; O2, CO2, N2)
+
 Atmospheric gas composition as mole fractions.
 Default values represent standard dry air.
 
-# Fields
-- `O2` — Oxygen fraction (default: 0.2095)
-- `CO2` — Carbon dioxide fraction (default: 0.0004)
-- `N2` — Nitrogen fraction (default: 0.7901)
+## Fields / Keywords
+
+- `O2`: Oxygen fraction (default: 0.2095)
+- `CO2`: Carbon dioxide fraction (default: 0.0004)
+- `N2`: Nitrogen fraction (default: 0.79)
 """
 Base.@kwdef struct GasFractions{O,C,N}
     O2::O = 0.2095
