@@ -63,6 +63,35 @@ end
 
 """
     wet_air_properties(T, rh, P; gasfrac=GasFractions(), vapour_pressure_equation=GoffGratch())
+    wet_air_properties(T_drybulb; kw...)
+
+Calculates several properties of humid air as output variables below. The program
+is based on equations from List, R. J. 1971. Smithsonian Meteorological Tables. Smithsonian
+Institution Press. Washington, DC. wet_air_properties must be used in conjunction with function vapour_pressure.
+
+Input variables are shown below. The user must supply known values for T_drybulb and P (P at one standard
+atmosphere is 101 325 pascals). Values for the remaining variables are determined by whether the user has
+either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
+
+# Arguments
+
+- `T_drybulb`: Dry bulb temperature (K or °C)
+- `rh`: Relative humidity (fractional)
+- `P_atmos`: Barometric pressure (Pa)
+- `fO2`; fractional O2 concentration in atmosphere, -
+- `fCO2`; fractional CO2 concentration in atmosphere, -
+- `fN2`; fractional N2 concentration in atmosphere, -
+# - `P_vap`: Vapour pressure (Pa)
+# - `P_vap_sat`: Saturation vapour pressure (Pa)
+# - `ρ_vap`: Vapour density (kg m-3)
+# - `r_w Mixing`: ratio (kg kg-1)
+# - `T_vir`: Virtual temperature (K)
+# - `T_vinc`: Virtual temperature increment (K)
+# - `ρ_air`: Density of the air (kg m-3)
+# - `c_p`: Specific heat of air at constant pressure (J kg-1 K-1)
+# - `ψ`: Water potential (Pa)
+# - `rh`: Relative humidity (fractional)
+
 """
 wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
 wet_air_properties(::Missing; kwargs...) = missing
