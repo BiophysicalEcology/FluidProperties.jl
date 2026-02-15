@@ -1,22 +1,22 @@
 """
     GasFractions
 
-    GasFractions(fO2, fCO2, fN2)
-    GasFractions(; fO2, fCO2, fN2)
+    GasFractions(oxygen_fraction, carbon_dioxide_fraction, nitrogen_fraction)
+    GasFractions(; oxygen_fraction, carbon_dioxide_fraction, nitrogen_fraction)
 
 Atmospheric gas composition as mole fractions.
 Default values represent standard dry air.
 
 ## Fields / Keywords
 
-- `fO2`: Oxygen fraction (default: 0.2095)
-- `fCO2`: Carbon dioxide fraction (default: 0.0004)
-- `fN2`: Nitrogen fraction (default: 0.79)
+- `oxygen_fraction`: Oxygen fraction (default: 0.2095)
+- `carbon_dioxide_fraction`: Carbon dioxide fraction (default: 0.0004)
+- `nitrogen_fraction`: Nitrogen fraction (default: 0.79)
 """
 Base.@kwdef struct GasFractions{O,C,N}
-    fO2::O = 0.2095
-    fCO2::C = 0.0004
-    fN2::N = 0.79
+    oxygen_fraction::O = 0.2095
+    carbon_dioxide_fraction::C = 0.0004
+    nitrogen_fraction::N = 0.79
 end
 
 """
@@ -166,9 +166,9 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 - `T_drybulb`: Dry bulb temperature (K or °C)
 - `rh`: Relative humidity (fractional)
 - `P_atmos`: Barometric pressure (Pa)
-- `fO2`; fractional O2 concentration in atmosphere, -
-- `fCO2`; fractional CO2 concentration in atmosphere, -
-- `fN2`; fractional N2 concentration in atmosphere, -
+- `oxygen_fraction`; fractional O2 concentration in atmosphere, -
+- `carbon_dioxide_fraction`; fractional CO2 concentration in atmosphere, -
+- `nitrogen_fraction`; fractional N2 concentration in atmosphere, -
 # - `P_vap`: Vapour pressure (Pa)
 # - `P_vap_sat`: Saturation vapour pressure (Pa)
 # - `ρ_vap`: Vapour density (kg m-3)
@@ -194,7 +194,7 @@ wet_air_properties(::Missing; kwargs...) = missing
     gasfrac::GasFractions,
     vapour_pressure_equation,
 )
-    (; fO2, fCO2, fN2) = gasfrac
+    (; oxygen_fraction=fO2, carbon_dioxide_fraction=fCO2, nitrogen_fraction=fN2) = gasfrac
     T = u"K"(T_drybulb)
     P = P_atmos
 
@@ -263,7 +263,7 @@ dry_air_properties(::Missing; kwargs...) = missing
     P = P_atmos
 
     # Molar mass of air
-    (; fO2, fCO2, fN2) = gasfrac
+    (; oxygen_fraction=fO2, carbon_dioxide_fraction=fCO2, nitrogen_fraction=fN2) = gasfrac
     M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
 
     # Density
