@@ -76,6 +76,50 @@ function vapour_pressure(::Huang, Tk)
 end
 
 """
+    VPLookupTable <: VapourPressureEquation
+
+Lookup-table with linear interpolation for [`vapour_pressure`](@ref).
+
+Pre-computes a table of saturation vapour pressures over a temperature range at
+construction time. Evaluation uses linear interpolation with no transcendental
+function calls, making it significantly faster than equation-based formulations
+for repeated calls.
+
+# Keyword arguments
+- `Tmin`: minimum temperature (°C), default -40.0
+- `Tmax`: maximum temperature (°C), default 60.0
+- `dT`: temperature step size (°C), default 0.1
+- `formulation`: [`VapourPressureEquation`](@ref) used to build the table, default `GoffGratch()`
+
+# Example
+```julia
+lut = VPLookupTable()
+lut = VPLookupTable(Tmin=-80.0, Tmax=100.0, dT=0.05, formulation=Huang())
+es  = vapour_pressure(lut, 293.15u"K")
+```
+"""
+struct VPLookupTable <: VapourPressureEquation
+    Tmin_C::Float64
+    dT::Float64
+    es_table::Vector{Float64}  # Pa, raw values (unit attached on return)
+end
+
+function VPLookupTable(; Tmin=-40.0, Tmax=90.0, dT=0.1, formulation=GoffGratch())
+    Ts = Tmin:dT:Tmax
+    es_table = [ustrip(u"Pa", vapour_pressure(formulation, (T + 273.15)u"K")) for T in Ts]
+    return VPLookupTable(float(Tmin), float(dT), es_table)
+end
+
+vapour_pressure(::VPLookupTable, ::Missing) = missing
+function vapour_pressure(lut::VPLookupTable, T)
+    Tc = ustrip(u"°C", T)
+    x  = (Tc - lut.Tmin_C) / lut.dT         # fractional 0-based index
+    i  = clamp(Int(floor(x)) + 1, 1, length(lut.es_table) - 1)
+    w  = x - floor(x)                         # interpolation weight [0, 1)
+    return (lut.es_table[i] * (1 - w) + lut.es_table[i+1] * w) * 1u"Pa"
+end
+
+"""
     vapour_pressure(T)
     vapour_pressure(formulation, T)
 
