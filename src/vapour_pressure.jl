@@ -68,10 +68,10 @@ function vapour_pressure(::Huang, Tk)
     t = ustrip(u"°C", Tk)
     if t > 0.0
         # Huang (2018), water over liquid surface
-        return exp((34.494 - 4924.99 / (t + 237.1)) / ((t + 105.0)^1.57)) * 100u"Pa"
+        return exp((34.494 - 4924.99 / (t + 237.1))) / ((t + 105.0)^1.57) * 1u"Pa"
     else
         # Huang (2018), water over ice surface
-        return exp((43.494 - 6545.8 / (t + 278.0)) / ((t + 868.0)^2)) * 100u"Pa"
+        return exp((43.494 - 6545.8 / (t + 278.0))) / ((t + 868.0)^2) * 1u"Pa"
     end
 end
 
