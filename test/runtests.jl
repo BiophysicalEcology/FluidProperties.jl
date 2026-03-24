@@ -10,3 +10,4 @@ end
 end
 
 @safetestset "Test against NicheMapR outputs" begin include("nichemapr_tests.jl") end
+@safetestset "Huang (2018) reference values" begin include("huang_tests.jl") end
