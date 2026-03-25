@@ -14,9 +14,9 @@ Default values represent standard dry air.
 - `nitrogen_fraction`: Nitrogen fraction (default: 0.79)
 """
 Base.@kwdef struct GasFractions{O,C,N}
-    oxygen_fraction::O = 0.2095
-    carbon_dioxide_fraction::C = 0.0004
-    nitrogen_fraction::N = 0.79
+    oxygen::O = 0.2095
+    carbon_dioxide::C = 0.0004
+    nitrogen::N = 0.79
 end
 
 """
@@ -104,53 +104,38 @@ Returned by [`wet_air_properties`](@ref).
 end
 
 """
-    atmospheric_pressure(h::Quantity;
-                 h_ref::Quantity = 0u"m",
-                 P_ref::Quantity = 101325u"Pa",
-                 L_ref::Quantity = -0.0065u"K/m",
-                 T_ref::Quantity = 288u"K",
-                 g_0::Quantity = 9.80665u"m/s^2",
+    atmospheric_pressure(elevation::Quantity;
+                 laps_rate::Quantity = -0.0065u"K/m",
+                 temperature::Quantity = 288u"K",
                  M::Quantity = 0.0289644u"kg/mol") -> Quantity
 
 Computes atmospheric pressure at a given altitude using the barometric formula,
 assuming a constant temperature lapse rate (standard tropospheric approximation).
 
 # Arguments
-- `h`: Elevation at which to compute pressure (with length units, e.g. `u"m"`).
-- `h_ref`: Reference altitude (default: `0u"m"`).
-- `P_ref`: Pressure at the reference altitude (default: `101325u"Pa"`, standard sea-level pressure).
-- `L_ref`: Temperature lapse rate (default: `-0.0065u"K/m"`).
-- `T_ref`: Temperature at the reference altitude (default: `288u"K"`).
-- `g_0`: Standard gravitational acceleration (default: `9.80665u"m/s^2"`).
-- `M`: Molar mass of dry air (default: `0.0289644u"kg/mol"`).
+- `elevation`: Elevation at which to compute pressure (with length units, e.g. `u"m"`).
+- `laps_rate`: Temperature lapse rate (default: `-0.0065u"K/m"`).
+- `reference_temperature`: Temperature at the altitude (default: `288u"K"`).
+- `air_molar_mass`: Molar mass of dry air (default: `0.0289644u"kg/mol"`).
 
 # Returns
-- `P_a`: Atmospheric pressure at altitude `h` (with pressure units, e.g. `u"Pa"`).
+Atmospheric pressure at altitude `h` (with pressure units, e.g. `u"Pa"`).
 
 # Notes
 - Uses the simplified barometric formula assuming a linear lapse rate and ideal gas behavior.
 - The universal gas constant `R` is used from the `Unitful` package.
-
-# Example
-using Unitful
-
-P = atmospheric_pressure(1500u"m")
 """
 atmospheric_pressure(::Missing; kw...) = missing
-function atmospheric_pressure(h::Quantity;
-    #P_ref::Quantity = atm,
-    L_ref::Quantity = -0.0065u"K/m",
-    T_ref::Quantity = 288.0u"K",
-    #g_0::Quantity = g_n,
-    M::Quantity = 0.0289644u"kg/mol"
+function atmospheric_pressure(elevation::Quantity;
+    laps_rate::Quantity = -0.0065u"K/m",
+    temperature::Quantity = 288.0u"K",
+    air_molar_mass::Quantity = 0.0289644u"kg/mol"
 )
-    P_a = atm * (1 + (L_ref / T_ref) * h) ^ ((-g_n * M) / (R * L_ref)) #5.2553026003237262u"kg*m^2*J^-1*s^-2"#
-
-    return P_a
+    return atm * (1 + (laps_rate / temperature) * elevation) ^ ((-g_n * air_molar_mass) / (R * laps_rate))
 end
 
 """
-    wet_air_properties(T, rh, P; gasfrac=GasFractions(), vapour_pressure_equation=GoffGratch())
+    wet_air_properties(T, rh, P; gas_fractions=GasFractions(), vapour_pressure_equation=GoffGratch())
     wet_air_properties(T_drybulb; kw...)
 
 Calculates several properties of humid air as output variables below. The program
@@ -163,12 +148,13 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 
 # Arguments
 
-- `T_drybulb`: Dry bulb temperature (K or °C)
-- `rh`: Relative humidity (fractional)
-- `P_atmos`: Barometric pressure (Pa)
-- `oxygen_fraction`; fractional O2 concentration in atmosphere, -
-- `carbon_dioxide_fraction`; fractional CO2 concentration in atmosphere, -
-- `nitrogen_fraction`; fractional N2 concentration in atmosphere, -
+- `drybulb_temperature`: Dry bulb temperature (K or °C)
+- `relative_humidity`: Relative humidity (fractional)
+- `atmospheric_pressure`: Barometric pressure (Pa)
+- `oxygen`; fractional O2 concentration in atmosphere, -
+- `carbon_dioxide`; fractional CO2 concentration in atmosphere, -
+- `nitrogen`; fractional N2 concentration in atmosphere, -
+
 # - `P_vap`: Vapour pressure (Pa)
 # - `P_vap_sat`: Saturation vapour pressure (Pa)
 # - `ρ_vap`: Vapour density (kg m-3)
@@ -183,20 +169,25 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 """
 wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
 wet_air_properties(::Missing; kwargs...) = missing
-@inline wet_air_properties(T, rh, P;
-    gasfrac::GasFractions=GasFractions(),
+@inline function wet_air_properties(T, rh, P;
+    gas_fractions::GasFractions=GasFractions(),
     vapour_pressure_equation=GoffGratch(),
-) = wet_air_properties(T, rh, P, gasfrac, vapour_pressure_equation)
+)
+    wet_air_properties(T, rh, P, gas_fractions, vapour_pressure_equation)
+end
 @inline function wet_air_properties(
-    T_drybulb::Quantity,
-    rh::Real,
-    P_atmos::Quantity,
-    gasfrac::GasFractions,
+    drybulb_temperature::Quantity,
+    relative_humidity::Real,
+    atmospheric_pressure::Quantity,
+    gas_fractions::GasFractions,
     vapour_pressure_equation,
 )
-    (; oxygen_fraction=fO2, carbon_dioxide_fraction=fCO2, nitrogen_fraction=fN2) = gasfrac
-    T = u"K"(T_drybulb)
-    P = P_atmos
+    fO2 = gas_fractions.oxygen
+    fCO2 = gas_fractions.carbon_dioxide
+    fN2 = gas_fractions.nitrogen
+
+    T = u"K"(drybulb_temperature)
+    P = atmospheric_pressure
 
     # Constants
     c_p_H2O_vap = 1864.40u"J/K/kg"
@@ -209,7 +200,7 @@ wet_air_properties(::Missing; kwargs...) = missing
 
     # Vapour pressure
     P_sat = FluidProperties.vapour_pressure(vapour_pressure_equation, T)
-    P_v = P_sat * rh
+    P_v = vapour_pressure = P_sat * relative_humidity
 
     # Mixing ratio
     r = ((M_w / M_a) * f_w * P_v) / (P - f_w * P_v)
@@ -231,39 +222,40 @@ wet_air_properties(::Missing; kwargs...) = missing
     specific_heat = (c_p_dry_air + (r * c_p_H2O_vap)) / (1 + r)
 
     # Water potential
-    water_potential = rh <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T) * log(rh))u"Pa"
-
+    water_potential = relative_humidity <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T) * log(relative_humidity))u"Pa"
 
     return WetAirProperties(;
         density,
         specific_heat,
-        vapour_pressure=P_v,
+        vapour_pressure,
         vapour_density,
         mixing_ratio,
-        relative_humidity=rh,
+        relative_humidity,
         water_potential,
         virtual_temp_increment,
     )
 end
 
 """
-    dry_air_properties(T, P; gasfrac=GasFractions())
+    dry_air_properties(T, P; gas_fractions=GasFractions())
 """
 dry_air_properties(::Missing, ::Missing; kwargs...) = missing
 dry_air_properties(::Missing; kwargs...) = missing
+@inline dry_air_properties(T, P; gas_fractions::GasFractions=GasFractions()) =
+    dry_air_properties(T, P, gas_fractions)
+@inline dry_air_properties(T; atmospheric_pressure=101325u"Pa", gas_fractions::GasFractions=GasFractions()) =
+    dry_air_properties(T, atmospheric_pressure, gas_fractions)
+@inline function dry_air_properties(
+    drybulb_temperature::Quantity, atmospheric_pressure::Quantity, gas_fractions::GasFractions
+)
+    T = u"K"(drybulb_temperature)
+    P = atmospheric_pressure
 
-@inline dry_air_properties(T, P; gasfrac::GasFractions=GasFractions()) =
-    dry_air_properties(T, P, gasfrac)
-
-@inline dry_air_properties(T; P_atmos=101325u"Pa", gasfrac::GasFractions=GasFractions()) =
-    dry_air_properties(T, P_atmos, gasfrac)
-
-@inline function dry_air_properties(T_drybulb::Quantity, P_atmos::Quantity, gasfrac::GasFractions)
-    T = u"K"(T_drybulb)
-    P = P_atmos
+    fO2 = gas_fractions.oxygen
+    fCO2 = gas_fractions.carbon_dioxide
+    fN2 = gas_fractions.nitrogen
 
     # Molar mass of air
-    (; oxygen_fraction=fO2, carbon_dioxide_fraction=fCO2, nitrogen_fraction=fN2) = gasfrac
     M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
 
     # Density
@@ -279,7 +271,7 @@ dry_air_properties(::Missing; kwargs...) = missing
     ν = μ / ρ
 
     # Thermal conductivity
-    thermal_conductivity = (0.02425 + (7.038e-5 * ustrip(u"°C", T_drybulb)))u"W/m/K"
+    thermal_conductivity = (0.02425 + (7.038e-5 * ustrip(u"°C", drybulb_temperature)))u"W/m/K"
 
     # Vapour diffusivity
     D_0 = 2.26e-5u"m^2/s"  # reference at 273.15 K
@@ -314,6 +306,7 @@ function enthalpy_of_vaporisation(T::Quantity)
     # These regressions don't respect units, so we strip them
     # convert any temperature (K or °C) to Celsius
     T = ustrip(u"°C", T)
+    # The regression returns kJ/kg but we return J/kg
     if T > 0
         return u"J/kg"((2500.8 - 2.36 * T + 0.0016 * T^2 - 0.00006 * T^3) * u"kJ/kg")
     else
@@ -359,16 +352,13 @@ The regressions are valid for temperatures up to 60°C. Temperatures above 60°C
 - `T::Quantity`: Temperature of water. Can be specified with units (e.g., `u"°C"`). Internally converted to °C.
 
 # Returns
-A named tuple with the following fields (all returned as Unitful quantities):
 
-- `c_p_H2O` : Specific heat capacity of water, J/(kg·K)
-- `ρ_H2O`   : Density of water, kg/m^3
-- `k_H2O`   : Thermal conductivity of water, W/(m·K)
-- `μ_H2O`   : Dynamic viscosity of water, kg/(m·s)
+A `WaterProperties` object, with the following fields (all Unitful quantities):
 
-# Notes
-- Input temperatures are converted to °C and then units stripped before calculation.
-- Density is clamped at 60°C to avoid extrapolation beyond the regression range.
+- `density`   : Density of water, kg/m^3
+- `specific_heat` : Specific heat capacity of water, J/(kg·K)
+- `thermal_conductivity`   : Thermal conductivity of water, W/(m·K)
+- `dynamic_viscosity`   : Dynamic viscosity of water, kg/(m·s)
 """
 water_properties(::Missing) = missing
 function water_properties(T::Quantity)
