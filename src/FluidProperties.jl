@@ -13,6 +13,7 @@ const atm = uconvert(u"Pa", 1Unitful.atm)
 export atmospheric_pressure, dry_air_properties, enthalpy_of_vaporisation, molar_enthalpy_of_vaporisation
 export vapour_pressure, water_properties, wet_air_properties
 export GasFractions, DryAirProperties, WetAirProperties, WaterProperties
+export VapourPressureEquation, GoffGratch, Teten, Huang, VPLookupTable
 
 @compound H2O
 @compound O2
@@ -22,7 +23,7 @@ export GasFractions, DryAirProperties, WetAirProperties, WaterProperties
 include("vapour_pressure.jl")
 include("fluid_properties.jl")
 
-function __init__()\
+function __init__()
     Unitful.register(FluidProperties)
 end
 
