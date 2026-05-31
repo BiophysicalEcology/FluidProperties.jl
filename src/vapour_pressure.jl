@@ -64,19 +64,19 @@ High accuracy from -100 to 100 °C and reasonable performance.
 struct Huang <: VapourPressureEquation end
 
 vapour_pressure(::Huang, ::Missing) = missing
-function vapour_pressure(::Huang, Tk)
-    t = ustrip(u"°C", Tk)
-    if t > 0.0
+function vapour_pressure(::Huang, T)
+    Tc = ustrip(u"°C", T)
+    if Tc > 0.0
         # Huang (2018), water over liquid surface
-        return exp((34.494 - 4924.99 / (t + 237.1))) / ((t + 105.0)^1.57) * 1u"Pa"
+        return exp((34.494 - 4924.99 / (Tc + 237.1))) / ((Tc + 105.0)^1.57) * 1u"Pa"
     else
         # Huang (2018), water over ice surface
-        return exp((43.494 - 6545.8 / (t + 278.0))) / ((t + 868.0)^2) * 1u"Pa"
+        return exp((43.494 - 6545.8 / (Tc + 278.0))) / ((Tc + 868.0)^2) * 1u"Pa"
     end
 end
 
 """
-    VPLookupTable <: VapourPressureEquation
+    VapourPressureLookup <: VapourPressureEquation
 
 Lookup-table with linear interpolation for [`vapour_pressure`](@ref).
 
@@ -93,30 +93,29 @@ for repeated calls.
 
 # Example
 ```julia
-lut = VPLookupTable()
-lut = VPLookupTable(Tmin=-80.0, Tmax=100.0, dT=0.05, formulation=Huang())
-es  = vapour_pressure(lut, 293.15u"K")
+vpl = VapourPressureLookup()
+vpl = VapourPressureLookup(tmin=-80.0u"°C", tmax=100.0u"°C", step=0.05u"K", formulation=Huang())
+es  = vapour_pressure(vpl, 293.15u"K")
 ```
 """
-struct VPLookupTable <: VapourPressureEquation
-    Tmin_C::Float64
-    dT::Float64
-    es_table::Vector{Float64}  # Pa, raw values (unit attached on return)
+struct VapourPressureLookup<: VapourPressureEquation
+    tmin::typeof(1.0u"K")
+    step::typeof(1.0u"K")
+    lookup::Vector{typeof(1.0u"Pa")}
+end
+function VapourPressureLookup(formulation=GoffGratch(); tmin=-40.0u"°C", tmax=90.0u"°C", step=0.1u"K")
+    unit(step) == u"K" || throw(ArgumentError("step must be given in Kelvin (K), got $(unit(step))"))
+    ts = tmin:step:tmax
+    table = [vapour_pressure(formulation, t) for t in ts]
+    return VapourPressureLookup(tmin, step, table)
 end
 
-function VPLookupTable(; Tmin=-40.0, Tmax=90.0, dT=0.1, formulation=GoffGratch())
-    Ts = Tmin:dT:Tmax
-    es_table = [ustrip(u"Pa", vapour_pressure(formulation, (T + 273.15)u"K")) for T in Ts]
-    return VPLookupTable(float(Tmin), float(dT), es_table)
-end
-
-vapour_pressure(::VPLookupTable, ::Missing) = missing
-function vapour_pressure(lut::VPLookupTable, T)
-    Tc = ustrip(u"°C", T)
-    x  = (Tc - lut.Tmin_C) / lut.dT         # fractional 0-based index
-    i  = clamp(Int(floor(x)) + 1, 1, length(lut.es_table) - 1)
-    w  = x - floor(x)                         # interpolation weight [0, 1)
-    return (lut.es_table[i] * (1 - w) + lut.es_table[i+1] * w) * 1u"Pa"
+vapour_pressure(::VapourPressureLookup, ::Missing) = missing
+function vapour_pressure(vpl::VapourPressureLookup, T)
+    x  = (T - vpl.tmin) / vpl.step         # fractional 0-based index (dimensionless)
+    i  = clamp(floor(Int, x) + 1, 1, length(vpl.lookup) - 1)
+    w  = x - floor(x)                      # interpolation weight [0, 1)
+    return vpl.lookup[i] * (1 - w) + vpl.lookup[i+1] * w
 end
 
 """
@@ -131,4 +130,4 @@ Calculates saturation vapour pressure (Pa) for a given air temperature.
 The `GoffGratch` formulation is used by default.
 """
 vapour_pressure(::Missing) = missing
-vapour_pressure(Tk) = vapour_pressure(GoffGratch(), Tk)
+vapour_pressure(T) = vapour_pressure(GoffGratch(), T)
