@@ -314,7 +314,7 @@ function enthalpy_of_vaporisation(T::Quantity)
     if T > 0
         return u"J/kg"((2500.8 - 2.36 * T + 0.0016 * T^2 - 0.00006 * T^3) * u"kJ/kg")
     else
-        return u"J/kg"((834.1 - 0.29 * T - 0.004 * T^2) * u"kJ/kg")
+        return u"J/kg"((2834.1 - 0.29 * T - 0.004 * T^2) * u"kJ/kg")
     end
 end
 
