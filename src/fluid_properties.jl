@@ -105,6 +105,7 @@ end
 
 """
     atmospheric_pressure(elevation::Quantity;
+                 reference_pressure::Quantity = atm,
                  laps_rate::Quantity = -0.0065u"K/m",
                  temperature::Quantity = 288u"K",
                  M::Quantity = 0.0289644u"kg/mol") -> Quantity
@@ -114,6 +115,8 @@ assuming a constant temperature lapse rate (standard tropospheric approximation)
 
 # Arguments
 - `elevation`: Elevation at which to compute pressure (with length units, e.g. `u"m"`).
+- `reference_pressure`: Pressure at `elevation = 0` (default: standard atmosphere,
+  `atm`).
 - `laps_rate`: Temperature lapse rate (default: `-0.0065u"K/m"`).
 - `reference_temperature`: Temperature at the altitude (default: `288u"K"`).
 - `air_molar_mass`: Molar mass of dry air (default: `0.0289644u"kg/mol"`).
@@ -127,11 +130,12 @@ Atmospheric pressure at altitude `h` (with pressure units, e.g. `u"Pa"`).
 """
 atmospheric_pressure(::Missing; kw...) = missing
 function atmospheric_pressure(elevation::Quantity;
+    reference_pressure::Quantity = atm,
     laps_rate::Quantity = -0.0065u"K/m",
     temperature::Quantity = 288.0u"K",
     air_molar_mass::Quantity = 0.0289644u"kg/mol"
 )
-    return atm * (1 + (laps_rate / temperature) * elevation) ^ ((-g_n * air_molar_mass) / (R * laps_rate))
+    return reference_pressure * (1 + (laps_rate / temperature) * elevation) ^ ((-g_n * air_molar_mass) / (R * laps_rate))
 end
 
 """
