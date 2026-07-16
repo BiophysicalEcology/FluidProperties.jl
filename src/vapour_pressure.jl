@@ -25,8 +25,8 @@ struct GoffGratch <: VapourPressureEquation end
 
 vapour_pressure(::GoffGratch, ::Missing) = missing
 function vapour_pressure(::GoffGratch, T)
-    Tc = ustrip(u"°C", T)
-    T = ustrip(u"K", T) + 0.01 # triple point of water is 273.16
+    # Clamped to avoid solvers taking this near/below zero and causing negative logs below.
+    T = clamp(ustrip(u"K", T) + 0.01, 173.15, 373.16) # triple point of water is 273.16
 
     # Physical reference points
     T_triple = 273.16    # K, triple point of water
