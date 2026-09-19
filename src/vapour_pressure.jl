@@ -76,6 +76,28 @@ function vapour_pressure(::Huang, T)
 end
 
 """
+    Bolton <: VapourPressureEquation
+
+Bolton (1980) eqn 10 for [`vapour_pressure`](@ref), over liquid water.
+Used by [`DaviesJones`](@ref).
+"""
+struct Bolton <: VapourPressureEquation end
+
+# Value (Pa) and temperature gradient (Pa/K)
+@inline function _vapour_pressure_terms(::Bolton, T)
+    e₀ = 611.2u"Pa"
+    a = 17.67
+    b = 243.5u"K"
+    T_C = u"K"(T) - freezing_temperature
+    eₛ = e₀ * exp(a * T_C / (T_C + b))
+    deₛ = eₛ * a * b / (T_C + b)^2
+    return eₛ, deₛ
+end
+
+vapour_pressure(::Bolton, ::Missing) = missing
+vapour_pressure(model::Bolton, T) = first(_vapour_pressure_terms(model, T))
+
+"""
     VapourPressureLookup <: VapourPressureEquation
 
 Lookup-table with linear interpolation for [`vapour_pressure`](@ref).
