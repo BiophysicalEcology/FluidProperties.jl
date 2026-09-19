@@ -95,12 +95,16 @@ end
           wet_bulb_temperature(DaviesJones(; convergence=FixedNewton()), 25.0u"°C", 0.5, P)
 end
 
+# Measured inside a function, so that the untyped loop variable does not add allocations
+function allocations(method, T, RH, P)
+    wet_bulb_temperature(method, T, RH, P)
+    return @allocated wet_bulb_temperature(method, T, RH, P)
+end
+
 @testset "type stable and non-allocating" begin
     T = 25.0u"°C"
     for method in METHODS
         @inferred wet_bulb_temperature(method, T, 0.5, P)
-        f(method, T, RH, P) = wet_bulb_temperature(method, T, RH, P)
-        f(method, T, 0.5, P)
-        @test (@allocated f(method, T, 0.5, P)) == 0
+        @test allocations(method, T, 0.5, P) == 0
     end
 end

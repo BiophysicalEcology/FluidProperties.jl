@@ -44,10 +44,10 @@ using Unitful
 
     @inferred natural_wet_bulb_temperature(T, T_w, 1.0u"m/s")
     @inferred natural_wet_bulb_temperature(T, T_w, 1.0u"m/s"; globe_temperature=40.0u"°C")
-    f(T, T_w, v) = natural_wet_bulb_temperature(T, T_w, v)
-    g(T, T_w, v) = natural_wet_bulb_temperature(T, T_w, v; globe_temperature=T + 10u"K")
-    f(T, T_w, 1.0u"m/s")
-    g(T, T_w, 1.0u"m/s")
-    @test (@allocated f(T, T_w, 1.0u"m/s")) == 0
-    @test (@allocated g(T, T_w, 1.0u"m/s")) == 0
+    function allocations(T, T_w, v; kw...)
+        natural_wet_bulb_temperature(T, T_w, v; kw...)
+        return @allocated natural_wet_bulb_temperature(T, T_w, v; kw...)
+    end
+    @test allocations(T, T_w, 1.0u"m/s") == 0
+    @test allocations(T, T_w, 1.0u"m/s"; globe_temperature=T + 10u"K") == 0
 end
