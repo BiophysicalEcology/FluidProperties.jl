@@ -1,4 +1,12 @@
+"""
+    VapourPressureEquation
+
+Abstract supertype for the saturation vapour pressure equations used by [`vapour_pressure`](@ref):
+[`GoffGratch`](@ref), [`Teten`](@ref), [`Huang`](@ref), [`Bolton`](@ref) and [`VapourPressureLookup`](@ref).
+"""
 abstract type VapourPressureEquation end
+
+Base.broadcastable(equation::VapourPressureEquation) = Ref(equation)
 
 """
     Teten <: VapourPressureEquation

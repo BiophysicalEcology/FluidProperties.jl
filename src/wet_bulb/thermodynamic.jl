@@ -68,6 +68,9 @@ Returned by [`wet_bulb_properties`](@ref).
     equivalent_potential_temperature::P
 end
 
+Base.show(io::IO, ::MIME"text/plain", properties::WetBulbProperties) = _show_properties(io, properties)
+Base.show(io::IO, properties::WetBulbProperties) = _show_properties_compact(io, properties)
+
 # Symbols are those of Davies-Jones (2008) and Bolton (1980). Mixing ratios are in kg/kg.
 const DAVIES_JONES_CONSTANTS = (;
     heat_capacity_ratio=3.504,                      # λ = cₚd/R_d

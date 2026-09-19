@@ -17,3 +17,10 @@ using Unitful
         @test vapour_pressure(Bolton(), T) ≈ vapour_pressure(GoffGratch(), T) rtol=1e-2
     end
 end
+
+@testset "broadcasting over equations" begin
+    temperatures = [10.0, 20.0, 30.0] .* u"°C"
+    for equation in (GoffGratch(), Teten(), Huang(), Bolton(), VapourPressureLookup())
+        @test vapour_pressure.(equation, temperatures) == [vapour_pressure(equation, T) for T in temperatures]
+    end
+end

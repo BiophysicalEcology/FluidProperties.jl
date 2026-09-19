@@ -52,6 +52,8 @@ end
         @test dry_air_properties(293.15u"K", P) == dry_air_properties(20.0u"°C", P)
         @test dry_air_properties(T; atmospheric_pressure=P) == air
         @test ismissing(dry_air_properties(missing, missing))
+        @test ismissing(dry_air_properties(missing, P))
+        @test ismissing(dry_air_properties(T, missing))
         @test ismissing(dry_air_properties(missing))
     end
 end
@@ -102,6 +104,9 @@ end
         @test wet_air_properties(T, 0.5, P; vapour_pressure_equation=Huang()).vapour_pressure ≈
               0.5 * vapour_pressure(Huang(), T)
         @test ismissing(wet_air_properties(missing, missing, missing))
+        @test ismissing(wet_air_properties(missing, 0.5, P))
+        @test ismissing(wet_air_properties(T, missing, P))
+        @test ismissing(wet_air_properties(T, 0.5, missing))
         @test ismissing(wet_air_properties(missing))
     end
 end
@@ -141,4 +146,20 @@ end
     @test molar_enthalpy_of_vaporisation(20.0u"°C") ≈ enthalpy_of_vaporisation(20.0u"°C") * M_w rtol=5e-3
     @test molar_enthalpy_of_vaporisation(293.15u"K") == molar_enthalpy_of_vaporisation(20.0u"°C")
     @test ismissing(molar_enthalpy_of_vaporisation(missing))
+end
+
+@testset "display of property structs" begin
+    for properties in (
+        dry_air_properties(20.0u"°C", 101325.0u"Pa"),
+        wet_air_properties(20.0u"°C", 0.5, 101325.0u"Pa"),
+        water_properties(20.0u"°C"),
+        wet_bulb_properties(20.0u"°C", 0.5, 101325.0u"Pa"),
+    )
+        text = sprint(show, MIME("text/plain"), properties)
+        @test startswith(text, string(nameof(typeof(properties))))
+        @test !occursin("Quantity", text)
+        @test count('
+', text) == fieldcount(typeof(properties))
+    end
+    @test occursin("density", sprint(show, MIME("text/plain"), wet_air_properties(20.0u"°C", 0.5, 101325.0u"Pa")))
 end

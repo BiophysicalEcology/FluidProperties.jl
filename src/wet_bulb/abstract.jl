@@ -8,6 +8,8 @@ Formulations: [`DaviesJones`](@ref), [`Stull`](@ref), [`Barenbrug`](@ref),
 """
 abstract type WetBulbMethod end
 
+Base.broadcastable(method::WetBulbMethod) = Ref(method)
+
 """
     SpecificHumidity(value)
 
@@ -18,6 +20,8 @@ a mixing ratio.
 struct SpecificHumidity{V<:Real}
     value::V
 end
+
+Base.broadcastable(humidity::SpecificHumidity) = Ref(humidity)
 
 @noinline _throw_not_fraction(name, value) = throw(DomainError(value,
     "$name must be a fraction between 0 and 1, got $value. Divide percentages by 100."))

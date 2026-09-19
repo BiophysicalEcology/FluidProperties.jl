@@ -104,3 +104,11 @@ end
         @test (@allocated f(method, T, 0.5, P)) == 0
     end
 end
+
+@testset "broadcasting" begin
+    temperatures = [10.0, 20.0, 30.0] .* u"°C"
+    for method in METHODS
+        @test wet_bulb_temperature.(method, temperatures, 0.5, P) == [wet_bulb_temperature(method, T, 0.5, P) for T in temperatures]
+    end
+    @test wet_bulb_temperature.(DaviesJones(), temperatures, SpecificHumidity(0.01), P) isa Vector
+end

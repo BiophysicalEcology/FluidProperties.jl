@@ -103,6 +103,33 @@ Returned by [`wet_air_properties`](@ref).
     virtual_temp_increment::VTI
 end
 
+# Multi-line display of the property structs, one field per line
+function _show_properties(io::IO, properties)
+    names = fieldnames(typeof(properties))
+    width = maximum(length ∘ string, names)
+    print(io, nameof(typeof(properties)))
+    for name in names
+        print(io, "
+  ", rpad(string(name), width), " = ")
+        show(IOContext(io, :compact => true), getfield(properties, name))
+    end
+end
+function _show_properties_compact(io::IO, properties)
+    print(io, nameof(typeof(properties)), "(")
+    for (i, name) in enumerate(fieldnames(typeof(properties)))
+        i > 1 && print(io, ", ")
+        print(io, name, " = ")
+        show(IOContext(io, :compact => true), getfield(properties, name))
+    end
+    print(io, ")")
+end
+for T in (:DryAirProperties, :WetAirProperties, :WaterProperties)
+    @eval begin
+        Base.show(io::IO, ::MIME"text/plain", properties::$T) = _show_properties(io, properties)
+        Base.show(io::IO, properties::$T) = _show_properties_compact(io, properties)
+    end
+end
+
 """
     atmospheric_pressure(elevation::Quantity;
                  reference_pressure::Quantity = atm,
@@ -171,9 +198,9 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 # - `rh`: Relative humidity (fractional)
 
 """
-wet_air_properties(::Missing, ::Missing, ::Missing; kwargs...) = missing
+wet_air_properties(::Union{Missing,Quantity}, ::Union{Missing,Real}, ::Union{Missing,Quantity}; kwargs...) = missing
 wet_air_properties(::Missing; kwargs...) = missing
-@inline function wet_air_properties(T, rh, P;
+@inline function wet_air_properties(T::Quantity, rh::Real, P::Quantity;
     gas_fractions::GasFractions=GasFractions(),
     vapour_pressure_equation=GoffGratch(),
 )
@@ -243,9 +270,9 @@ end
 """
     dry_air_properties(T, P; gas_fractions=GasFractions())
 """
-dry_air_properties(::Missing, ::Missing; kwargs...) = missing
+dry_air_properties(::Union{Missing,Quantity}, ::Union{Missing,Quantity}; kwargs...) = missing
 dry_air_properties(::Missing; kwargs...) = missing
-@inline dry_air_properties(T, P; gas_fractions::GasFractions=GasFractions()) =
+@inline dry_air_properties(T::Quantity, P::Quantity; gas_fractions::GasFractions=GasFractions()) =
     dry_air_properties(T, P, gas_fractions)
 @inline dry_air_properties(T; atmospheric_pressure=101325u"Pa", gas_fractions::GasFractions=GasFractions()) =
     dry_air_properties(T, atmospheric_pressure, gas_fractions)
