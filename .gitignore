@@ -29,3 +29,4 @@ JuliaLocalPreferences.toml
 Manifest.toml
 test/R/.Rhistory
 .vscode/settings.json
+.claude/settings.json
