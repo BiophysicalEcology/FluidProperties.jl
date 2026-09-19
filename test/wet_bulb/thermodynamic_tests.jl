@@ -78,12 +78,15 @@ using Unitful
 
     @testset "type stable and non-allocating" begin
         T = 25.0u"°C"; P = 101325.0u"Pa"
+        # Measured inside a function, so that the untyped loop variables below do not add allocations
+        function allocations(T, humidity, P, convergence)
+            wet_bulb_properties(T, humidity, P; convergence)
+            return @allocated wet_bulb_properties(T, humidity, P; convergence)
+        end
         for humidity in (0.5, SpecificHumidity(0.01)), convergence in (RefinedNewton(), FixedNewton())
             @inferred wet_bulb_properties(T, humidity, P; convergence)
             @inferred wet_bulb_temperature(T, humidity, P; convergence)
-            f(T, h, P, c) = wet_bulb_properties(T, h, P; convergence=c)
-            f(T, humidity, P, convergence)
-            @test (@allocated f(T, humidity, P, convergence)) == 0
+            @test allocations(T, humidity, P, convergence) == 0
         end
         @inferred wet_bulb_properties(50.0u"°C", 0.9, 80000.0u"Pa")
     end
