@@ -2,7 +2,8 @@
     VapourPressureEquation
 
 Abstract supertype for the saturation vapour pressure equations used by [`vapour_pressure`](@ref):
-[`GoffGratch`](@ref), [`Teten`](@ref), [`Huang`](@ref), [`Bolton`](@ref) and [`VapourPressureLookup`](@ref).
+[`GoffGratch`](@ref), [`Teten`](@ref), [`Huang`](@ref), [`Bolton`](@ref), [`ClausiusClapeyron`](@ref)
+and [`VapourPressureLookup`](@ref).
 """
 abstract type VapourPressureEquation end
 
@@ -104,6 +105,67 @@ end
 
 vapour_pressure(::Bolton, ::Missing) = missing
 vapour_pressure(model::Bolton, T) = first(_vapour_pressure_terms(model, T))
+
+"""
+    ClausiusClapeyron <: VapourPressureEquation
+
+    ClausiusClapeyron(; ice=true, kw...)
+
+The Clausius-Clapeyron relation integrated from the triple point with constant specific heats
+(the Rankine-Kirchhoff approximation), for [`vapour_pressure`](@ref):
+
+```math
+e^* = p_{tr} \\left(\\frac{T}{T_{tr}}\\right)^{Δc_p/R_v}
+      \\exp\\left[\\frac{L_0 - Δc_p T_0}{R_v}\\left(\\frac{1}{T_{tr}} - \\frac{1}{T}\\right)\\right]
+```
+
+where `L₀` is the latent heat of vaporisation (or sublimation) at `T₀` and `Δcₚ` is the
+difference between the specific heats of water vapour and liquid water (or ice).
+
+This is the formulation of [Thermodynamics.jl](https://github.com/CliMA/Thermodynamics.jl),
+and the defaults are the values of [ClimaParams.jl](https://github.com/CliMA/ClimaParams.jl),
+so the results match `saturation_vapor_pressure(param_set, T, Liquid())` above the triple
+point and `saturation_vapor_pressure(param_set, T, Ice())` below it.
+
+## Keywords
+
+- `ice`: Use saturation over ice below the triple point (default: `true`),
+  otherwise over (supercooled) liquid water at all temperatures
+- `triple_point_pressure`: Triple point pressure of water (Pa)
+- `triple_point_temperature`: Triple point temperature of water (K)
+- `reference_temperature`: Temperature `T₀` of the reference latent heats (K)
+- `latent_heat_vaporisation`: Latent heat of vaporisation at `T₀` (J/kg)
+- `latent_heat_sublimation`: Latent heat of sublimation at `T₀` (J/kg)
+- `specific_heat_vapour`: Isobaric specific heat of water vapour (J/kg/K)
+- `specific_heat_liquid`: Isobaric specific heat of liquid water (J/kg/K)
+- `specific_heat_ice`: Isobaric specific heat of ice (J/kg/K)
+- `gas_constant_vapour`: Specific gas constant of water vapour (J/kg/K)
+"""
+@kwdef struct ClausiusClapeyron{P,T,L,C,R} <: VapourPressureEquation
+    ice::Bool = true
+    triple_point_pressure::P = 611.657u"Pa"
+    triple_point_temperature::T = 273.16u"K"
+    reference_temperature::T = 273.16u"K"
+    latent_heat_vaporisation::L = 2.5008e6u"J/kg"
+    latent_heat_sublimation::L = 2.8344e6u"J/kg"
+    specific_heat_vapour::C = 1859.0u"J/kg/K"
+    specific_heat_liquid::C = 4181.0u"J/kg/K"
+    specific_heat_ice::C = 2070.0u"J/kg/K"
+    gas_constant_vapour::R = 461.5u"J/kg/K"
+end
+
+vapour_pressure(::ClausiusClapeyron, ::Missing) = missing
+function vapour_pressure(cc::ClausiusClapeyron, T)
+    T = u"K"(T)
+    p_tr = cc.triple_point_pressure
+    T_tr = cc.triple_point_temperature
+    T_0 = cc.reference_temperature
+    R_v = cc.gas_constant_vapour
+    over_ice = cc.ice && T < T_tr
+    L_0 = over_ice ? cc.latent_heat_sublimation : cc.latent_heat_vaporisation
+    Δc_p = cc.specific_heat_vapour - (over_ice ? cc.specific_heat_ice : cc.specific_heat_liquid)
+    return p_tr * exp(Δc_p / R_v * log(T / T_tr) + (L_0 - Δc_p * T_0) / R_v * (1 / T_tr - 1 / T))
+end
 
 """
     VapourPressureLookup <: VapourPressureEquation

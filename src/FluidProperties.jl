@@ -14,7 +14,7 @@ const freezing_temperature = 273.15u"K"
 export atmospheric_pressure, dry_air_properties, enthalpy_of_vaporisation, molar_enthalpy_of_vaporisation
 export vapour_pressure, water_properties, wet_air_properties
 export GasFractions, DryAirProperties, WetAirProperties, WaterProperties
-export VapourPressureEquation, GoffGratch, Teten, Huang, Bolton, VapourPressureLookup
+export VapourPressureEquation, GoffGratch, Teten, Huang, Bolton, ClausiusClapeyron, VapourPressureLookup
 export wet_bulb_properties, wet_bulb_temperature, natural_wet_bulb_temperature
 export WetBulbMethod, DaviesJones, Stull, Barenbrug, Smithsonian, EnergyBalance
 export WetBulbProperties, SpecificHumidity, WetBulbConvergence, FixedNewton, RefinedNewton

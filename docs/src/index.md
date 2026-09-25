@@ -23,7 +23,7 @@ features:
     details: Density, viscosity, thermal conductivity, vapour diffusivity, black-body emittance and more for <a class="highlight-link">dry air</a> and <a class="highlight-link">humid air</a> as functions of temperature, pressure and humidity, from the Smithsonian Meteorological Tables.
     link: /manual/dry_air
   - title: 💧 Vapour pressure
-    details: Several equations for <a class="highlight-link">saturation vapour pressure</a>, including Goff-Gratch, Tetens, Huang and Bolton, and a fast lookup table.
+    details: Several equations for <a class="highlight-link">saturation vapour pressure</a>, including Goff-Gratch, Tetens, Huang, Bolton and the Clausius-Clapeyron relation of Thermodynamics.jl, and a fast lookup table.
     link: /manual/vapour_pressure
   - title: 🌡️ Wet bulb temperature
     details: <a class="highlight-link">Wet bulb temperature</a> by the thermodynamic method of Davies-Jones, psychrometric equations, an energy balance and empirical fits, and the natural wet bulb temperature.

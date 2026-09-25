@@ -34,8 +34,8 @@ water_properties(20.0u"°C")
 
 ## Vapour pressure
 
-`vapour_pressure` uses the Goff-Gratch equation unless another equation is given: `GoffGratch`, `Teten`, `Huang`, `Bolton`
-or a `VapourPressureLookup` table.
+`vapour_pressure` uses the Goff-Gratch equation unless another equation is given: `GoffGratch`, `Teten`, `Huang`, `Bolton`,
+`ClausiusClapeyron` (matching [Thermodynamics.jl](https://github.com/CliMA/Thermodynamics.jl)) or a `VapourPressureLookup` table.
 
 ```julia
 vapour_pressure(20.0u"°C")

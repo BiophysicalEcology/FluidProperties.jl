@@ -20,7 +20,7 @@ end
 
 @testset "broadcasting over equations" begin
     temperatures = [10.0, 20.0, 30.0] .* u"°C"
-    for equation in (GoffGratch(), Teten(), Huang(), Bolton(), VapourPressureLookup())
+    for equation in (GoffGratch(), Teten(), Huang(), Bolton(), ClausiusClapeyron(), VapourPressureLookup())
         @test vapour_pressure.(equation, temperatures) == [vapour_pressure(equation, T) for T in temperatures]
     end
 end

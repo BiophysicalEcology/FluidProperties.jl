@@ -7,8 +7,8 @@ using Unitful
 # Don't output huge svgs for Makie plots
 CairoMakie.activate!(type = "png")
 
-# RasterDataSources downloads go here unless the path is set
-get!(ENV, "RASTERDATASOURCES_PATH", joinpath(@__DIR__, "data"))
+# RasterDataSources downloads go here unless the path is set. It must exist.
+mkpath(get!(ENV, "RASTERDATASOURCES_PATH", joinpath(@__DIR__, "data")))
 
 # Helpers for the figures, loaded in the examples with `using Main.FigureHelpers`
 include("figure_helpers.jl")

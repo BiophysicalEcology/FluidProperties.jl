@@ -80,3 +80,12 @@ Missing values are propagated:
 ```@example get_started
 vapour_pressure(missing)
 ```
+
+## Related packages
+
+[Thermodynamics.jl](https://github.com/CliMA/Thermodynamics.jl) from the Climate Modeling Alliance covers the moist
+thermodynamics of climate and weather models: energies, entropies, potential temperatures and phase equilibrium, in
+plain floats with GPU and automatic differentiation support. FluidProperties.jl instead covers the properties needed
+in biophysical ecology, such as viscosity, conductivity, diffusivity and wet bulb temperatures, with units. The
+[`ClausiusClapeyron`](@ref) vapour pressure equation matches Thermodynamics.jl, see
+[Clausius-Clapeyron and Thermodynamics.jl](manual/vapour_pressure.md#Clausius-Clapeyron-and-Thermodynamics.jl).
