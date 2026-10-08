@@ -153,12 +153,14 @@ by atmospheric dynamics. Nature Geoscience 14: 133-137.
 end
 
 function wet_bulb_temperature(method::EnergyBalance, air_temperature::Quantity, relative_humidity::Real, atmospheric_pressure::Quantity)
+    (; molar_mass_ratio) = DAVIES_JONES_CONSTANTS
+
     T = float(u"K"(air_temperature))
     RH = _check_fraction("relative_humidity", relative_humidity)
     P = float(u"Pa"(atmospheric_pressure))
     equation = method.vapour_pressure_equation
 
-    ε = DAVIES_JONES_CONSTANTS.molar_mass_ratio
+    ε = molar_mass_ratio
 
     air = wet_air_properties(T, RH, P; vapour_pressure_equation=equation)
     c_p = air.specific_heat
