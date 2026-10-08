@@ -110,7 +110,7 @@ tairs = collect(0:5:60) .* u"°C" # sequence of air temperatures at which to obt
 P = 101325.0u"Pa"
 vd(rh) = getproperty.(wet_air_properties.(tairs, rh, P), :vapour_density) # obtain vapor density at each relative humidity
 
-fig, ax = figure_axis("Air temperature (°C)", "Vapor density over water (kg m⁻³)"; limits = (nothing, (0, 0.09)))
+fig, ax = figure_axis("Air temperature (°C)", "Vapor density over water (kg m⁻³)"; limits = ((0, 60), (0, 0.09)))
 for rh in (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0)
     lines!(ax, ustrip.(tairs), ustrip.(u"kg/m^3", vd(rh)); linewidth = 2, color = :black)
 end
@@ -121,7 +121,7 @@ for wb in collect(0:2:50) .* u"°C" # sequence of wet bulb temperatures
     # rearrangement of the psychrometer equation
     db = wb + esat / (0.00066 / u"K" * (1 + 0.00115 / u"K" * (uconvert(u"K", wb) - 273.15u"K")) * P)
     vd_wb = wet_air_properties(wb, 1.0, P).vapour_density
-    lines!(ax, [ustrip(wb), ustrip(db)], [ustrip(u"kg/m^3", vd_wb), 0.0]; linewidth = 1, color = :steelblue)
+    lines!(ax, [ustrip(u"°C", wb), ustrip(u"°C", db)], [ustrip(u"kg/m^3", vd_wb), 0.0]; linewidth = 1, color = :steelblue)
 end
 fig
 ```

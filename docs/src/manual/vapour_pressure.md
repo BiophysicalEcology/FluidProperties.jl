@@ -104,34 +104,7 @@ The two packages overlap only in the humidity calculations, and serve different 
 | Constants | Those of each source equation | A single parameter set from ClimaParams.jl |
 | Inputs | Unitful.jl quantities, `missing` propagated | Plain floats in SI units, GPU and automatic differentiation support |
 
-## Adding an equation
-
-Each equation is a type, and [`vapour_pressure`](@ref) has a method for each. Julia chooses the method from the
-types of all the arguments (multiple dispatch), so an equation can be added without changing the package: define a
-subtype of [`VapourPressureEquation`](@ref) and a method for it. The Magnus form fitted by Alduchov and Eskridge
-(1996), over liquid water:
-
-```@example vapourpressure
-struct AlduchovEskridge <: VapourPressureEquation end
-
-function FluidProperties.vapour_pressure(::AlduchovEskridge, T)
-    Tc = ustrip(u"°C", T)
-    return 6.1094 * exp(17.625 * Tc / (243.04 + Tc)) * 100u"Pa"
-end
-
-vapour_pressure(AlduchovEskridge(), 20.0u"°C")
-```
-
-It now works wherever the others do, including in [`wet_air_properties`](@ref) and in the packages built on
-FluidProperties.jl, such as Microclimate.jl:
-
-```@example vapourpressure
-wet_air_properties(20.0u"°C", 0.5, 101325.0u"Pa"; vapour_pressure_equation = AlduchovEskridge()).vapour_pressure
-```
-
 ## References
-
-Alduchov OA, Eskridge RE. 1996. Improved Magnus form approximation of saturation vapor pressure. Journal of Applied Meteorology 35: 601-609.
 
 Bolton D. 1980. The computation of equivalent potential temperature. Monthly Weather Review 108: 1046-1053.
 
