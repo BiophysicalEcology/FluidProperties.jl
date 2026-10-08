@@ -23,8 +23,10 @@ The properties of the `air` at each temperature are found by broadcasting over t
 ## Figure 1. Black-body emittance
 
 ```math
-\phi = 5.67032 \times 10^{-8} (t + 273.15)^{4}
+\phi = \sigma T^{4}, \qquad T = t + 273.15
 ```
+
+where ``\sigma = 5.670374 \times 10^{-8}`` W m⁻² K⁻⁴ is the Stefan-Boltzmann constant.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -38,8 +40,11 @@ fig
 ## Figure 2. Density of dry air
 
 ```math
-\rho = \frac{P}{287.04 (t + 273.15)}
+\rho = \frac{M_a \, p}{R T}, \qquad T = t + 273.15
 ```
+
+where ``M_a`` is the molecular weight of dry air from its [`GasFractions`](@ref) and ``R`` is the gas constant. With
+the default gas fractions ``R / M_a = 288.17`` J kg⁻¹ K⁻¹.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -56,8 +61,11 @@ fig
 ## Figure 4. Diffusivity of water vapor in air
 
 ```math
-D = D_0 \left(\frac{T}{T_0}\right)^{n} \frac{\rho}{\rho_0}, \quad D_0 = 2.26 \times 10^{-5}, \quad T = t + 273.15, \quad n = 1.81, \quad \rho_0 = 10^5
+D = D_0 \left(\frac{T}{T_{D_0}}\right)^{n} \frac{p_0}{p}
 ```
+
+where ``D_0 = 2.26 \times 10^{-5}`` m² s⁻¹ is the diffusivity at ``T_{D_0} = 273.15`` K and ``p_0 = 10^5`` Pa,
+``n = 1.81`` and ``T = t + 273.15``.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -74,8 +82,11 @@ fig
 ## Figure 5. Dynamic viscosity of air
 
 ```math
-\mu = \mu_0 \left[\frac{T_0 + C}{T + C} \left(\frac{T}{T_0}\right)^{1.5}\right], \quad \mu_0 = 1.8325 \times 10^{-5}, \quad T_0 = 296.16, \quad C = 120, \quad T = t + 273.15
+\mu = \mu_0 \frac{T_0 + C}{T + C} \left(\frac{T}{T_0}\right)^{m}
 ```
+
+Sutherland's formula, with ``\mu_0 = 1.8325 \times 10^{-5}`` kg m⁻¹ s⁻¹ at ``T_0 = 296.16`` K, Sutherland's constant
+``C = 120`` K, ``m = 1.5`` and ``T = t + 273.15``.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -121,11 +132,14 @@ fig
 ## Figure 8. Latent heat of vaporization of water
 
 ```math
-L = 2.5012 \times 10^{6} - 2378.7 \, t \qquad (-20 < t < 60)
+L = \begin{cases}
+2500.8 - 2.36 \, t + 0.0016 \, t^2 - 0.00006 \, t^3 & t > 0 \\
+2834.1 - 0.29 \, t - 0.004 \, t^2 & t \le 0
+\end{cases}
 ```
 
-[`enthalpy_of_vaporisation`](@ref) uses the regression on tabular data for temperatures above 0 °C and a regression for
-sublimation from ice below.
+in kJ kg⁻¹, with ``t`` in °C. [`enthalpy_of_vaporisation`](@ref) returns J kg⁻¹. Above 0 °C this is the latent
+heat of vaporisation, and at and below 0 °C the latent heat of sublimation from ice.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -192,8 +206,10 @@ fig
 ## Figure 14. Thermal conductivity of air
 
 ```math
-k = 0.02425 + 7.038 \times 10^{-5} t \qquad (-20 < t < 40)
+k = 0.02425 + 7.038 \times 10^{-5} \, t \qquad (-20 < t < 40)
 ```
+
+in W m⁻¹ K⁻¹, with ``t`` in °C.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -207,10 +223,10 @@ fig
 ## Figure 19. Wavelength of maximum emittance from black-body
 
 ```math
-\lambda_m = \frac{2.897 \times 10^{3}}{t + 273.15}
+\lambda_m = \frac{b}{T}, \qquad T = t + 273.15
 ```
 
-The wavelength is in micrometres in this expression, and [`dry_air_properties`](@ref) returns metres.
+Wien's displacement law, with ``b = 2.897 \times 10^{-3}`` m K.
 
 ```@example dryair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures

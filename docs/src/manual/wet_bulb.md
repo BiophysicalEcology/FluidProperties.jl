@@ -45,7 +45,9 @@ methods = (DaviesJones(), Stull(), Barenbrug(), Smithsonian(), EnergyBalance())
 ```
 
 The psychrometric methods, [`Barenbrug`](@ref), [`Smithsonian`](@ref) and [`EnergyBalance`](@ref), solve an equation for the wet bulb
-temperature and take a `vapour_pressure_equation` ([`GoffGratch`](@ref) by default) and the solver settings `tolerance` and `max_iterations`.
+temperature with [Roots.jl](https://github.com/JuliaMath/Roots.jl). They take a `vapour_pressure_equation` ([`GoffGratch`](@ref) by default),
+a bracketing `solver` (`A42()` by default, or `Bisection()`, `AlefeldPotraShi()` or `FalsePosition()`) and the solver settings
+`tolerance` and `max_iterations`. The result is `NaN` if the solver does not converge.
 With the [`Bolton`](@ref) vapour pressure equation, [`Smithsonian`](@ref) is the equation used in the NOAA wet bulb calculator
 (Lemke and Kjellstrom 2012).
 

@@ -54,8 +54,12 @@ fig
 ## Figure 9. Mixing ratio over water at 100 000 Pa
 
 ```math
-r_w = \frac{0.62570 \, e}{p - 1.0060 \, e}
+r_w = \frac{(M_v / M_a) \, f_w \, e}{p - f_w \, e}
 ```
+
+where ``e = rh \, e^*`` is the vapour pressure, ``M_v / M_a = 0.6244`` is the ratio of the molecular weights of water
+and dry air (with the default [`GasFractions`](@ref)) and ``f_w = 1.0053`` is the enhancement factor, the departure of
+humid air from the ideal gas laws.
 
 ```@example humidair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -72,8 +76,10 @@ fig
 ## Figure 10. Specific heat of air at 100 000 Pa
 
 ```math
-c_p = \frac{1004.84 + (1864.40 \, r_w)}{1 + r_w}
+c_p = \frac{c_{p,a} + c_{p,v} \, r_w}{1 + r_w}
 ```
+
+where ``c_{p,a} = 1004.84`` and ``c_{p,v} = 1864.40`` J kg⁻¹ K⁻¹ are the specific heats of dry air and water vapour.
 
 ```@example humidair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -90,8 +96,10 @@ fig
 ## Figure 15. Vapour density over water
 
 ```math
-\rho_v = \frac{e}{461.5 \, (t + 273.15)}
+\rho_v = \frac{e \, M_v}{Z_v R T}, \qquad T = t + 273.15
 ```
+
+where ``R`` is the gas constant and ``Z_v = 0.998`` is the compressibility factor of water vapour.
 
 The curves are lines of constant relative humidity. The straight lines are lines of constant wet bulb temperature
 (see [Wet bulb temperature](wet_bulb.md)), from the saturated vapour density at the wet bulb temperature to zero vapour
@@ -121,8 +129,10 @@ fig
 ## Figure 16. Vapour pressure over water
 
 ```math
-e = 461.50 \, \rho_v (t + 273.15)
+e = rh \, e^*
 ```
+
+where ``e^*`` is the saturation vapour pressure from [`vapour_pressure`](@ref) and ``rh`` is a fraction.
 
 ```@example humidair
 tairs = collect(-20:5:50) .* u"°C" # sequence of air temperatures
@@ -139,7 +149,7 @@ fig
 ## Figure 17. Virtual temperature increment at 100 000 Pa
 
 ```math
-\Delta T_v = T \left[\frac{1 + \frac{r_w}{0.622}}{1 + r_w}\right] - T, \qquad T = t + 273.15
+\Delta T_v = T \left[\frac{1 + \frac{r_w}{M_v / M_a}}{1 + r_w}\right] - T, \qquad T = t + 273.15
 ```
 
 ```@example humidair
@@ -157,8 +167,12 @@ fig
 ## Figure 18. Water potential
 
 ```math
-\psi = (4.615 \times 10^{5}) (t + 273.15) \ln\left(\frac{rh}{100}\right)
+\psi = \rho_w R_v T \ln(rh), \qquad T = t + 273.15
 ```
+
+where ``\rho_w = 1000`` kg m⁻³ is the density of liquid water and ``R_v = 461.5`` J kg⁻¹ K⁻¹ is the gas constant for
+water vapour, so ``\rho_w R_v = 4.615 \times 10^{5}`` Pa K⁻¹. ``rh`` is a fraction. Where it is zero the water
+potential is returned as −999 Pa.
 
 ```@example humidair
 rhs = 0.65:0.05:1.0 # relative humidities (fractions)
