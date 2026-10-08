@@ -19,27 +19,50 @@ const NATURAL_WET_BULB_CONSTANTS = (;
     radiant_offset=0.2u"K",
 )
 
-@inline function _wind_coefficient(v)
+# Wind coefficient C(v), Bernard and Pourmoghani (1999)
+function _wind_coefficient(wind_speed)
     (; still_wind, still_coefficient, ventilated_wind, ventilated_coefficient,
        coefficient_intercept, coefficient_slope) = NATURAL_WET_BULB_CONSTANTS
-    return if v < still_wind
-        still_coefficient
-    elseif v > ventilated_wind
-        ventilated_coefficient
+
+    v = wind_speed
+
+    v_still = still_wind
+    v_vent = ventilated_wind
+    C_still = still_coefficient
+    C_vent = ventilated_coefficient
+    a = coefficient_intercept
+    b = coefficient_slope
+
+    return if v < v_still
+        C_still
+    elseif v > v_vent
+        C_vent
     else
-        coefficient_intercept + coefficient_slope * log10(v / 1.0u"m/s")
+        a + b * log10(v / 1.0u"m/s")
     end
 end
 
-@inline function _radiant_adjustment(v)
+# Radiant adjustment e(v), Bernard and Pourmoghani (1999)
+function _radiant_adjustment(wind_speed)
     (; radiant_still_wind, radiant_still_adjustment, radiant_ventilated_wind,
        radiant_ventilated_adjustment, radiant_scale, radiant_exponent, radiant_offset) = NATURAL_WET_BULB_CONSTANTS
-    return if v < radiant_still_wind
-        radiant_still_adjustment
-    elseif v > radiant_ventilated_wind
-        radiant_ventilated_adjustment
+
+    v = wind_speed
+
+    v_still = radiant_still_wind
+    v_vent = radiant_ventilated_wind
+    e_still = radiant_still_adjustment
+    e_vent = radiant_ventilated_adjustment
+    a = radiant_scale
+    n = radiant_exponent
+    b = radiant_offset
+
+    return if v < v_still
+        e_still
+    elseif v > v_vent
+        e_vent
     else
-        radiant_scale / (v / 1.0u"m/s")^radiant_exponent - radiant_offset
+        a / (v / 1.0u"m/s")^n - b
     end
 end
 
@@ -65,18 +88,26 @@ Bernard, T. E. and Pourmoghani, M. (1999). Prediction of workplace wet bulb glob
 Applied Occupational and Environmental Hygiene 14: 126-134.
 """
 natural_wet_bulb_temperature(::Union{Missing,Quantity}, ::Union{Missing,Quantity}, ::Union{Missing,Quantity}; kw...) = missing
-@inline function natural_wet_bulb_temperature(
+function natural_wet_bulb_temperature(
     air_temperature::Quantity, wet_bulb_temperature::Quantity, wind_speed::Quantity;
     globe_temperature::Quantity=air_temperature,
 )
+    (; globe_excess, globe_coefficient) = NATURAL_WET_BULB_CONSTANTS
+
     T = float(u"K"(air_temperature))
     T_w = float(u"K"(wet_bulb_temperature))
     T_g = float(u"K"(globe_temperature))
     v = float(u"m/s"(wind_speed))
     v < zero(v) && throw(DomainError(v, "wind_speed must not be negative, got $v"))
-    return if T_g - T >= NATURAL_WET_BULB_CONSTANTS.globe_excess
-        T_w + NATURAL_WET_BULB_CONSTANTS.globe_coefficient * (T_g - T) + _radiant_adjustment(v)
+
+    ΔT_g = globe_excess
+    k = globe_coefficient
+
+    T_nwb = if T_g - T >= ΔT_g
+        T_w + k * (T_g - T) + _radiant_adjustment(v)
     else
         T - _wind_coefficient(v) * (T - T_w)
     end
+
+    return T_nwb
 end

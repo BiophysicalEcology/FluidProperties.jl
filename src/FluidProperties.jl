@@ -4,6 +4,11 @@ using Unitful, UnitfulMoles
 
 using Unitful: ustrip, uconvert
 
+# Re-export Roots.jl bracketing solvers so users can choose the solver of the
+# psychrometric wet bulb methods without an additional Roots dependency.
+using Roots: ZeroProblem, solve, Bisection, A42, AlefeldPotraShi, FalsePosition
+export Bisection, A42, AlefeldPotraShi, FalsePosition
+
 # Define here instead of using PhysicalConstants.jl
 # Its too slow due to BigFloat conversions and allocation
 using Unitful: σ, R

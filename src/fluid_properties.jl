@@ -162,8 +162,28 @@ function atmospheric_pressure(elevation::Quantity;
     temperature::Quantity = 288.0u"K",
     air_molar_mass::Quantity = 0.0289644u"kg/mol"
 )
-    return reference_pressure * (1 + (laps_rate / temperature) * elevation) ^ ((-g_n * air_molar_mass) / (R * laps_rate))
+    z = elevation
+    P₀ = reference_pressure
+    Γ = laps_rate
+    T₀ = temperature
+    M = air_molar_mass
+
+    P = P₀ * (1 + (Γ / T₀) * z)^((-g_n * M) / (R * Γ))
+
+    return P
 end
+
+# Constants of the humid air equations of List (1971), as in NicheMapR WETAIR (Tracy et al. 2016)
+const WET_AIR_CONSTANTS = (;
+    specific_heat_dry_air=1004.84u"J/K/kg",         # c_p_a
+    specific_heat_water_vapour=1864.40u"J/K/kg",    # c_p_v
+    enhancement_factor=1.0053,                      # f_w, departure of humid air from the ideal gas laws
+    vapour_compressibility=0.998,                   # Z_v, compressibility factor of water vapour
+    air_compressibility=0.999,                      # Z_a, compressibility factor of humid air
+    gas_constant_water_vapour=461.5u"J/K/kg",       # R_v
+    liquid_water_density=1000.0u"kg/m^3",           # ρ_w, for water potential
+    dry_air_water_potential=-999.0u"Pa",            # ψ returned where relative humidity is zero
+)
 
 """
     wet_air_properties(T, rh, P; gas_fractions=GasFractions(), vapour_pressure_equation=GoffGratch())
@@ -200,151 +220,194 @@ either (1) psychrometric data (T_wetbulb or rh), or (2) hygrometric data (T_dew)
 """
 wet_air_properties(::Union{Missing,Quantity}, ::Union{Missing,Real}, ::Union{Missing,Quantity}; kwargs...) = missing
 wet_air_properties(::Missing; kwargs...) = missing
-@inline function wet_air_properties(T::Quantity, rh::Real, P::Quantity;
+function wet_air_properties(T::Quantity, rh::Real, P::Quantity;
     gas_fractions::GasFractions=GasFractions(),
     vapour_pressure_equation=GoffGratch(),
 )
     wet_air_properties(T, rh, P, gas_fractions, vapour_pressure_equation)
 end
-@inline function wet_air_properties(
+function wet_air_properties(
     drybulb_temperature::Quantity,
     relative_humidity::Real,
     atmospheric_pressure::Quantity,
     gas_fractions::GasFractions,
     vapour_pressure_equation,
 )
-    fO2 = gas_fractions.oxygen
-    fCO2 = gas_fractions.carbon_dioxide
-    fN2 = gas_fractions.nitrogen
+    (; specific_heat_dry_air, specific_heat_water_vapour, enhancement_factor, vapour_compressibility,
+       air_compressibility, gas_constant_water_vapour, liquid_water_density, dry_air_water_potential) = WET_AIR_CONSTANTS
 
     T = u"K"(drybulb_temperature)
-    P = atmospheric_pressure
+    rh = relative_humidity
+    p = atmospheric_pressure
 
-    # Constants
-    c_p_H2O_vap = 1864.40u"J/K/kg"
-    c_p_dry_air = 1004.84u"J/K/kg"
-    f_w = 1.0053  # correction factor for departure from ideal gas laws
+    f_O₂ = gas_fractions.oxygen
+    f_CO₂ = gas_fractions.carbon_dioxide
+    f_N₂ = gas_fractions.nitrogen
 
-    # Molar masses
-    M_w = u"kg"(1molH₂O) / 1u"mol"  # water
-    M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"  # air
+    c_p_a = specific_heat_dry_air
+    c_p_v = specific_heat_water_vapour
+    f_w = enhancement_factor
+    Z_v = vapour_compressibility
+    Z_a = air_compressibility
+    R_v = gas_constant_water_vapour
+    ρ_w = liquid_water_density
+    ψ_dry = dry_air_water_potential
+
+    # Molecular weights
+    M_v = u"kg"(1molH₂O) / 1u"mol"                                # water
+    M_a = (f_O₂ * molO₂ + f_CO₂ * molCO₂ + f_N₂ * molN₂) / 1u"mol" # dry air
 
     # Vapour pressure
-    P_sat = FluidProperties.vapour_pressure(vapour_pressure_equation, T)
-    P_v = vapour_pressure = P_sat * relative_humidity
+    e_s = vapour_pressure(vapour_pressure_equation, T)
+    e = e_s * rh
 
     # Mixing ratio
-    r = ((M_w / M_a) * f_w * P_v) / (P - f_w * P_v)
-    mixing_ratio = r
+    r_w = ((M_v / M_a) * f_w * e) / (p - f_w * e)
 
     # Vapour density
-    ρ_v = P_v * M_w / (0.998 * Unitful.R * T)
-    vapour_density = uconvert(u"kg/m^3", ρ_v)
+    ρ_v = uconvert(u"kg/m^3", e * M_v / (Z_v * R * T))
 
     # Virtual temperature and increment
-    T_vir = T * ((1 + r / (M_w / M_a)) / (1 + r))
-    virtual_temp_increment = T_vir - T
+    T_v = T * ((1 + r_w / (M_v / M_a)) / (1 + r_w))
+    ΔT_v = T_v - T
 
     # Air density
-    ρ = (M_a / Unitful.R) * P / (0.999 * T_vir)
-    density = uconvert(u"kg/m^3", ρ)
+    ρ = uconvert(u"kg/m^3", (M_a / R) * p / (Z_a * T_v))
 
     # Specific heat
-    specific_heat = (c_p_dry_air + (r * c_p_H2O_vap)) / (1 + r)
+    c_p = (c_p_a + (r_w * c_p_v)) / (1 + r_w)
 
     # Water potential
-    water_potential = relative_humidity <= 0 ? -999.0u"Pa" : (4.615e+5 * ustrip(u"K", T) * log(relative_humidity))u"Pa"
+    ψ = rh <= 0 ? ψ_dry : uconvert(u"Pa", ρ_w * R_v * T * log(rh))
 
     return WetAirProperties(;
-        density,
-        specific_heat,
-        vapour_pressure,
-        vapour_density,
-        mixing_ratio,
-        relative_humidity,
-        water_potential,
-        virtual_temp_increment,
+        density=ρ,
+        specific_heat=c_p,
+        vapour_pressure=e,
+        vapour_density=ρ_v,
+        mixing_ratio=r_w,
+        relative_humidity=rh,
+        water_potential=ψ,
+        virtual_temp_increment=ΔT_v,
     )
 end
+
+# Constants of the dry air equations, as in NicheMapR DRYAIR (Tracy et al. 2016)
+const DRY_AIR_CONSTANTS = (;
+    reference_viscosity=1.8325e-5u"kg/m/s",                     # μ₀, Sutherland's formula
+    viscosity_reference_temperature=296.16u"K",                 # T₀
+    sutherland_constant=120.0u"K",                              # C
+    sutherland_exponent=1.5,                                    # m
+    thermal_conductivity_coefficients=(0.02425u"W/m/K", 7.038e-5u"W/m/K^2"), # k = a + b t, t relative to freezing
+    reference_diffusivity=2.26e-5u"m^2/s",                      # D₀
+    diffusivity_reference_temperature=273.15u"K",               # T_D₀
+    diffusivity_reference_pressure=1.0e5u"Pa",                  # p₀
+    diffusivity_exponent=1.81,                                  # n
+    wien_constant=2.897e-3u"K*m",                               # b, Wien's displacement law
+)
 
 """
     dry_air_properties(T, P; gas_fractions=GasFractions())
 """
 dry_air_properties(::Union{Missing,Quantity}, ::Union{Missing,Quantity}; kwargs...) = missing
 dry_air_properties(::Missing; kwargs...) = missing
-@inline dry_air_properties(T::Quantity, P::Quantity; gas_fractions::GasFractions=GasFractions()) =
+dry_air_properties(T::Quantity, P::Quantity; gas_fractions::GasFractions=GasFractions()) =
     dry_air_properties(T, P, gas_fractions)
-@inline dry_air_properties(T; atmospheric_pressure=101325u"Pa", gas_fractions::GasFractions=GasFractions()) =
+dry_air_properties(T; atmospheric_pressure=atm, gas_fractions::GasFractions=GasFractions()) =
     dry_air_properties(T, atmospheric_pressure, gas_fractions)
-@inline function dry_air_properties(
+function dry_air_properties(
     drybulb_temperature::Quantity, atmospheric_pressure::Quantity, gas_fractions::GasFractions
 )
+    (; reference_viscosity, viscosity_reference_temperature, sutherland_constant, sutherland_exponent,
+       thermal_conductivity_coefficients, reference_diffusivity, diffusivity_reference_temperature,
+       diffusivity_reference_pressure, diffusivity_exponent, wien_constant) = DRY_AIR_CONSTANTS
+
     T = u"K"(drybulb_temperature)
-    P = atmospheric_pressure
+    t = T - freezing_temperature
+    p = atmospheric_pressure
 
-    fO2 = gas_fractions.oxygen
-    fCO2 = gas_fractions.carbon_dioxide
-    fN2 = gas_fractions.nitrogen
+    f_O₂ = gas_fractions.oxygen
+    f_CO₂ = gas_fractions.carbon_dioxide
+    f_N₂ = gas_fractions.nitrogen
 
-    # Molar mass of air
-    M_a = (fO2 * molO₂ + fCO2 * molCO₂ + fN2 * molN₂) / 1u"mol"
+    μ₀ = reference_viscosity
+    T₀ = viscosity_reference_temperature
+    C = sutherland_constant
+    m = sutherland_exponent
+    D₀ = reference_diffusivity
+    T_D₀ = diffusivity_reference_temperature
+    p₀ = diffusivity_reference_pressure
+    n = diffusivity_exponent
+    b = wien_constant
+
+    # Molecular weight of dry air
+    M_a = (f_O₂ * molO₂ + f_CO₂ * molCO₂ + f_N₂ * molN₂) / 1u"mol"
 
     # Density
-    ρ = uconvert(u"kg/m^3", (M_a / R) * P / T)
+    ρ = uconvert(u"kg/m^3", (M_a / R) * p / T)
 
     # Dynamic viscosity (Sutherland's formula)
-    μ_0 = 1.8325e-5u"kg/m/s"  # reference dynamic viscosity
-    T_0 = 296.16u"K"          # reference temperature
-    C = 120.0u"K"             # Sutherland's constant
-    μ = (μ_0 * (T_0 + C) / (T + C)) * (T / T_0)^1.5
+    μ = (μ₀ * (T₀ + C) / (T + C)) * (T / T₀)^m
 
     # Kinematic viscosity
     ν = μ / ρ
 
     # Thermal conductivity
-    thermal_conductivity = (0.02425 + (7.038e-5 * ustrip(u"°C", drybulb_temperature)))u"W/m/K"
+    k = evalpoly(t, thermal_conductivity_coefficients)
 
-    # Vapour diffusivity
-    D_0 = 2.26e-5u"m^2/s"  # reference at 273.15 K
-    vapour_diffusivity = D_0 * ((T / 273.15u"K")^1.81) * (1.e5u"Pa" / P)
+    # Diffusivity of water vapour in air
+    D = D₀ * ((T / T_D₀)^n) * (p₀ / p)
 
-    # Grashof coefficient (multiply by ΔT·L³ to get Grashof number)
-    β = 1 / T  # thermal expansion coefficient
-    grashof_coefficient = g_n * β / (ν^2)
+    # Group of variables in the Grashof number (multiply by ΔT·L³ to get the Grashof number)
+    β = 1 / T # temperature coefficient of volume expansion
+    γ = g_n * β / (ν^2)
 
-    # Blackbody radiation
-    blackbody_emission = σ * T^4
-    peak_wavelength = 2.897e-3u"K*m" / T
+    # Black-body emittance
+    φ = σ * T^4
+
+    # Wavelength of maximum emittance (Wien's displacement law)
+    λ_m = b / T
 
     return DryAirProperties(;
         density=ρ,
         molar_mass=M_a,
         dynamic_viscosity=μ,
         kinematic_viscosity=ν,
-        thermal_conductivity,
-        vapour_diffusivity,
-        grashof_coefficient,
-        blackbody_emission,
-        peak_wavelength,
+        thermal_conductivity=k,
+        vapour_diffusivity=D,
+        grashof_coefficient=γ,
+        blackbody_emission=φ,
+        peak_wavelength=λ_m,
     )
 end
 
+# Polynomial coefficients in temperature relative to freezing, lowest order first
+const ENTHALPY_OF_VAPORISATION_COEFFICIENTS = (;
+    water=(2500.8u"kJ/kg", -2.36u"kJ/kg/K", 0.0016u"kJ/kg/K^2", -0.00006u"kJ/kg/K^3"), # above freezing
+    ice=(2834.1u"kJ/kg", -0.29u"kJ/kg/K", -0.004u"kJ/kg/K^2"),                         # at and below freezing
+)
+
 """
-    enthalpy_of_vaporisation(T::Quantity)
+    enthalpy_of_vaporisation(temperature::Quantity)
 """
 enthalpy_of_vaporisation(::Missing) = missing
-function enthalpy_of_vaporisation(T::Quantity)
-    # These regressions don't respect units, so we strip them
-    # convert any temperature (K or °C) to Celsius
-    T = ustrip(u"°C", T)
-    # The regression returns kJ/kg but we return J/kg
-    if T > 0
-        return u"J/kg"((2500.8 - 2.36 * T + 0.0016 * T^2 - 0.00006 * T^3) * u"kJ/kg")
+function enthalpy_of_vaporisation(temperature::Quantity)
+    (; water, ice) = ENTHALPY_OF_VAPORISATION_COEFFICIENTS
+
+    T = u"K"(temperature)
+    t = T - freezing_temperature
+
+    L = if T > freezing_temperature
+        evalpoly(t, water)
     else
-        return u"J/kg"((2834.1 - 0.29 * T - 0.004 * T^2) * u"kJ/kg")
+        evalpoly(t, ice)
     end
+
+    return u"J/kg"(L)
 end
 
+# Polynomial coefficients in temperature relative to freezing, lowest order first
+const MOLAR_ENTHALPY_OF_VAPORISATION_COEFFICIENTS = (45144.0u"J/mol", -48.0u"J/mol/K")
 
 """
     molar_enthalpy_of_vaporisation(T::Quantity)
@@ -352,18 +415,32 @@ end
 From Campbell et al 1994 p. 309
 
 References
-- Campbell, G. S., Jungbauer, J. D. Jr., Bidlake, W. R., & Hungerford, R. D. (1994). 
-  Predicting the effect of temperature on soil thermal conductivity. 
+- Campbell, G. S., Jungbauer, J. D. Jr., Bidlake, W. R., & Hungerford, R. D. (1994).
+  Predicting the effect of temperature on soil thermal conductivity.
   Soil Science, 158(5), 307–313.
 """
 molar_enthalpy_of_vaporisation(::Missing) = missing
-function molar_enthalpy_of_vaporisation(T::Quantity)
-    # This regressions doesn't respect units, so we strip them
-    # convert any temperature (K or °C) to Celsius
-    T = ustrip(u"°C", T)
-    return (45144.0 - 48.0 * T) * u"J/mol"
+function molar_enthalpy_of_vaporisation(temperature::Quantity)
+    T = u"K"(temperature)
+    t = T - freezing_temperature
+
+    λ = evalpoly(t, MOLAR_ENTHALPY_OF_VAPORISATION_COEFFICIENTS)
+
+    return λ
 end
 
+# Regressions of Porter (1988) on Ede (1967). Polynomial coefficients in temperature
+# relative to freezing, lowest order first.
+const WATER_PROPERTIES_CONSTANTS = (;
+    specific_heat_coefficients=(4220.02u"J/kg/K", -4.5531u"J/kg/K^2", 0.182958u"J/kg/K^3",
+                                -0.00310614u"J/kg/K^4", 1.89399e-5u"J/kg/K^5"),
+    cold_density=1000.0u"kg/m^3",                              # below density_threshold
+    density_coefficients=(1017.0u"kg/m^3", -0.6u"kg/m^3/K"),   # from density_threshold to maximum_temperature
+    density_threshold=303.15u"K",                              # 30 °C
+    maximum_temperature=333.15u"K",                            # 60 °C, upper limit of the regressions
+    thermal_conductivity_coefficients=(0.551666u"W/m/K", 0.00282144u"W/m/K^2", -2.02383e-5u"W/m/K^3"),
+    dynamic_viscosity_coefficients=(0.0017515u"kg/m/s", -4.31502e-5u"kg/m/s/K", 3.71431e-7u"kg/m/s/K^2"),
+)
 
 """
     water_properties(T::Quantity)
@@ -371,16 +448,17 @@ end
 Compute phyiscal properties of liquid water at a given temperature `T`.
 
 # Description
-These properties are based on regressions obtained using Grapher from Golden Software 
+These properties are based on regressions obtained using Grapher from Golden Software
 on data from:
 
-> Ede, "An Introduction of Heat Transfer Principles and Calculations," Pergamon Press, 1967, p. 262.  
+> Ede, "An Introduction of Heat Transfer Principles and Calculations," Pergamon Press, 1967, p. 262.
 > (Regression performed by W. Porter, 14 July 1988)
 
-The regressions are valid for temperatures up to 60°C. Temperatures above 60°C are clamped to 60°C.
+The regressions are valid for temperatures up to 60°C. Above 60°C, density, thermal
+conductivity and dynamic viscosity are those at 60°C.
 
 # Inputs
-- `T::Quantity`: Temperature of water. Can be specified with units (e.g., `u"°C"`). Internally converted to °C.
+- `T::Quantity`: Temperature of water. Can be specified with units (e.g., `u"°C"`).
 
 # Returns
 
@@ -392,33 +470,35 @@ A `WaterProperties` object, with the following fields (all Unitful quantities):
 - `dynamic_viscosity`   : Dynamic viscosity of water, kg/(m·s)
 """
 water_properties(::Missing) = missing
-function water_properties(T::Quantity)
-    # These regressions don't respect units, so we strip them
-    T = ustrip(u"°C", T) # Ensure temperature is in °C
+function water_properties(temperature::Quantity)
+    (; specific_heat_coefficients, cold_density, density_coefficients, density_threshold,
+       maximum_temperature, thermal_conductivity_coefficients, dynamic_viscosity_coefficients) = WATER_PROPERTIES_CONSTANTS
 
-    # Specific heat capacity (J/kg·K)
-    c_p = (4220.02 - 4.5531 * T + 0.182958 * T^2 - 0.00310614 * T^3 + 1.89399e-5 * T^4) * u"J/kg/K"
+    T = u"K"(temperature)
 
-    # Density (kg/m^3)
-    ρ = if T < 30
-        1000.0 * u"kg/m^3"
-    elseif T <= 60
-        (1017.0 - 0.6 * T) * u"kg/m^3"
-    else
-        T = 60.0
-        (1017.0 - 0.6 * T) * u"kg/m^3" # Clamp to 60°C
-    end
+    T_ρ = density_threshold
+    T_max = maximum_temperature
+    ρ_cold = cold_density
 
-    # Thermal conductivity (W/m·K)
-    K = (0.551666 + 0.00282144 * T - 2.02383e-5 * T^2) * u"W/m/K"
+    t = T - freezing_temperature
+    t_clamped = min(T, T_max) - freezing_temperature # clamped to the upper limit of the regressions
 
-    # Dynamic viscosity (kg/m·s)
-    μ = (0.0017515 - 4.31502e-5 * T + 3.71431e-7 * T^2) * u"kg/m/s"
+    # Specific heat capacity
+    c_p = evalpoly(t, specific_heat_coefficients)
+
+    # Density
+    ρ = T < T_ρ ? ρ_cold : evalpoly(t_clamped, density_coefficients)
+
+    # Thermal conductivity
+    k = evalpoly(t_clamped, thermal_conductivity_coefficients)
+
+    # Dynamic viscosity
+    μ = evalpoly(t_clamped, dynamic_viscosity_coefficients)
 
     return WaterProperties(;
         density=ρ,
         specific_heat=c_p,
-        thermal_conductivity=K,
+        thermal_conductivity=k,
         dynamic_viscosity=μ,
     )
 end

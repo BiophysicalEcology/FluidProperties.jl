@@ -7,7 +7,7 @@ using Unitful
     @test unit(vapour_pressure(Bolton(), 293.15u"K")) == u"Pa"
     @test ismissing(vapour_pressure(Bolton(), missing))
     # Gradient against a finite difference
-    _, deₛ = FluidProperties._vapour_pressure_terms(Bolton(), 20.0u"°C")
+    deₛ = FluidProperties._vapour_pressure_terms(Bolton(), 20.0u"°C").saturation_vapour_pressure_gradient
     h = 1e-5u"K"
     T = 293.15u"K"
     fd = (vapour_pressure(Bolton(), T + h) - vapour_pressure(Bolton(), T - h)) / 2h
