@@ -60,7 +60,8 @@ end
     # Tighter tolerance and iteration limit
     @test wet_bulb_temperature(Barenbrug(; tolerance=1e-9u"K"), 25.0u"°C", 0.5, P) ≈
           wet_bulb_temperature(Barenbrug(), 25.0u"°C", 0.5, P) atol=1e-4u"K"
-    @test isfinite(ustrip(wet_bulb_temperature(Barenbrug(; max_iterations=1), 25.0u"°C", 0.5, P)))
+    # No convergence within max_iterations gives NaN
+    @test isnan(ustrip(wet_bulb_temperature(Barenbrug(; max_iterations=1), 25.0u"°C", 0.5, P)))
 end
 
 @testset "vapour pressure equation option" begin
@@ -106,5 +107,17 @@ end
     for method in METHODS
         @inferred wet_bulb_temperature(method, T, 0.5, P)
         @test allocations(method, T, 0.5, P) == 0
+    end
+end
+
+@testset "Roots.jl solvers" begin
+    T = 25.0u"°C"
+    for M in (Barenbrug, Smithsonian, EnergyBalance)
+        reference = wet_bulb_temperature(M(), T, 0.5, P)
+        for solver in (Bisection(), A42(), AlefeldPotraShi(), FalsePosition())
+            method = M(; solver)
+            @test wet_bulb_temperature(method, T, 0.5, P) ≈ reference atol=1e-4u"K"
+            @test allocations(method, T, 0.5, P) == 0
+        end
     end
 end

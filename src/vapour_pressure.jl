@@ -10,10 +10,16 @@ Low accuracy but very fast, with only a single `exp` call.
 struct Teten <: VapourPressureEquation end
 
 vapour_pressure(::Teten, ::Missing) = missing
-function vapour_pressure(::Teten, T)
-    Tc = ustrip(u"°C", T)
-    P_triple = 6.1071    # hPa, vapour pressure at triple point
-    return P_triple * exp((17.269 * Tc) / (237.3 + Tc)) * 100u"Pa"
+function vapour_pressure(::Teten, temperature)
+    T_c = ustrip(u"°C", temperature)
+
+    e₀ = 6.1071 # hPa, vapour pressure at triple point
+    a = 17.269
+    b = 237.3   # °C
+
+    eₛ = e₀ * exp(a * T_c / (b + T_c)) * 100u"Pa"
+
+    return eₛ
 end
 
 """
@@ -24,34 +30,34 @@ Widely used Goff-Gratch equations for [`vapour_pressure`](@ref).
 struct GoffGratch <: VapourPressureEquation end
 
 vapour_pressure(::GoffGratch, ::Missing) = missing
-function vapour_pressure(::GoffGratch, T)
+function vapour_pressure(::GoffGratch, temperature)
     # Clamped to avoid solvers taking this near/below zero and causing negative logs below.
-    T = clamp(ustrip(u"K", T) + 0.01, 173.15, 373.16) # triple point of water is 273.16
+    T = clamp(ustrip(u"K", temperature) + 0.01, 173.15, 373.16) # triple point of water is 273.16
 
     # Physical reference points
-    T_triple = 273.16    # K, triple point of water
-    T_boiling = 373.16   # K, normal boiling point of water
-    P_triple = 6.1071    # hPa, vapour pressure at triple point
-    P_boiling = 1013.246 # hPa, vapour pressure at boiling point
+    T_tr = 273.16    # K, triple point of water
+    T_b = 373.16     # K, normal boiling point of water
+    e_tr = 6.1071    # hPa, vapour pressure at triple point
+    e_b = 1013.246   # hPa, vapour pressure at boiling point
 
-    if T < T_triple
-        # --- Goff–Gratch saturation over ice ---
-        logP_vap = -9.09718 * (T_triple / T - 1) +
-                   -3.56654 * log10(T_triple / T) +
-                   0.876793 * (1 - T / T_triple) +
-                   log10(P_triple)
+    log₁₀eₛ = if T < T_tr
+        # Goff–Gratch saturation over ice
+        -9.09718 * (T_tr / T - 1) +
+        -3.56654 * log10(T_tr / T) +
+        0.876793 * (1 - T / T_tr) +
+        log10(e_tr)
     else
-        # --- Goff–Gratch saturation over liquid water ---
-        logP_vap = -7.90298 * (T_boiling / T - 1) +
-                   5.02808 * log10(T_boiling / T) +
-                   -1.3816e-07 * (exp10(11.344 * (1 - T / T_boiling)) - 1) +
-                   8.1328e-03 * (exp10(-3.49149 * (T_boiling / T - 1)) - 1) +
-                   log10(P_boiling)
+        # Goff–Gratch saturation over liquid water
+        -7.90298 * (T_b / T - 1) +
+        5.02808 * log10(T_b / T) +
+        -1.3816e-07 * (exp10(11.344 * (1 - T / T_b)) - 1) +
+        8.1328e-03 * (exp10(-3.49149 * (T_b / T - 1)) - 1) +
+        log10(e_b)
     end
     # Note: exp10 is faster than 10^x
-    result = exp10(logP_vap) * 100u"Pa"
+    eₛ = exp10(log₁₀eₛ) * 100u"Pa"
 
-    return result
+    return eₛ
 end
 
 """
@@ -64,15 +70,18 @@ High accuracy from -100 to 100 °C and reasonable performance.
 struct Huang <: VapourPressureEquation end
 
 vapour_pressure(::Huang, ::Missing) = missing
-function vapour_pressure(::Huang, T)
-    Tc = ustrip(u"°C", T)
-    if Tc > 0.0
+function vapour_pressure(::Huang, temperature)
+    t = ustrip(u"°C", temperature)
+
+    eₛ = if t > 0.0
         # Huang (2018), water over liquid surface
-        return exp((34.494 - 4924.99 / (Tc + 237.1))) / ((Tc + 105.0)^1.57) * 1u"Pa"
+        exp(34.494 - 4924.99 / (t + 237.1)) / (t + 105.0)^1.57 * 1u"Pa"
     else
         # Huang (2018), water over ice surface
-        return exp((43.494 - 6545.8 / (Tc + 278.0))) / ((Tc + 868.0)^2) * 1u"Pa"
+        exp(43.494 - 6545.8 / (t + 278.0)) / (t + 868.0)^2 * 1u"Pa"
     end
+
+    return eₛ
 end
 
 """
@@ -83,19 +92,23 @@ Used by [`DaviesJones`](@ref).
 """
 struct Bolton <: VapourPressureEquation end
 
-# Value (Pa) and temperature gradient (Pa/K)
-@inline function _vapour_pressure_terms(::Bolton, T)
+# Saturation vapour pressure (Pa) and its temperature gradient (Pa/K), Bolton eqn 10
+function _vapour_pressure_terms(::Bolton, temperature)
+    T = u"K"(temperature)
+
     e₀ = 611.2u"Pa"
     a = 17.67
     b = 243.5u"K"
-    T_C = u"K"(T) - freezing_temperature
-    eₛ = e₀ * exp(a * T_C / (T_C + b))
-    deₛ = eₛ * a * b / (T_C + b)^2
-    return eₛ, deₛ
+    C = freezing_temperature
+
+    eₛ = e₀ * exp(a * (T - C) / (T - C + b))
+    deₛdT = eₛ * a * b / (T - C + b)^2
+
+    return (; saturation_vapour_pressure = eₛ, saturation_vapour_pressure_gradient = deₛdT)
 end
 
 vapour_pressure(::Bolton, ::Missing) = missing
-vapour_pressure(model::Bolton, T) = first(_vapour_pressure_terms(model, T))
+vapour_pressure(model::Bolton, temperature) = _vapour_pressure_terms(model, temperature).saturation_vapour_pressure
 
 """
     VapourPressureLookup <: VapourPressureEquation
@@ -133,23 +146,29 @@ function VapourPressureLookup(formulation=GoffGratch(); tmin=-40.0u"°C", tmax=9
 end
 
 vapour_pressure(::VapourPressureLookup, ::Missing) = missing
-function vapour_pressure(vpl::VapourPressureLookup, T)
-    x  = (T - vpl.tmin) / vpl.step         # fractional 0-based index (dimensionless)
-    i  = clamp(floor(Int, x) + 1, 1, length(vpl.lookup) - 1)
-    w  = x - floor(x)                      # interpolation weight [0, 1)
-    return vpl.lookup[i] * (1 - w) + vpl.lookup[i+1] * w
+function vapour_pressure(vpl::VapourPressureLookup, temperature)
+    T = temperature
+    T_min = vpl.tmin
+    ΔT = vpl.step
+    eₛ = vpl.lookup
+
+    x = (T - T_min) / ΔT # fractional 0-based index (dimensionless)
+    i = clamp(floor(Int, x) + 1, 1, length(eₛ) - 1)
+    w = x - floor(x)     # interpolation weight [0, 1)
+
+    return eₛ[i] * (1 - w) + eₛ[i+1] * w
 end
 
 """
-    vapour_pressure(T)
-    vapour_pressure(formulation, T)
+    vapour_pressure(temperature)
+    vapour_pressure(formulation, temperature)
 
 Calculates saturation vapour pressure (Pa) for a given air temperature.
 
 # Arguments
-- `T`: air temperature in K.
+- `temperature`: air temperature (any temperature unit).
 
 The `GoffGratch` formulation is used by default.
 """
 vapour_pressure(::Missing) = missing
-vapour_pressure(T) = vapour_pressure(GoffGratch(), T)
+vapour_pressure(temperature) = vapour_pressure(GoffGratch(), temperature)

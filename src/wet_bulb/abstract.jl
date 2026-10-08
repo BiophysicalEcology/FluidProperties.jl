@@ -22,35 +22,43 @@ end
 @noinline _throw_not_fraction(name, value) = throw(DomainError(value,
     "$name must be a fraction between 0 and 1, got $value. Divide percentages by 100."))
 
-@inline function _check_fraction(name, value)
+function _check_fraction(name, value)
     (value < 0 || value > 1) && _throw_not_fraction(name, value)
     return value
 end
 
-# Illinois false-position root of `residual` on [T_lo, T_hi]. NaN without a sign change.
-@inline function _find_root(residual, T_lo, T_hi, tolerance, max_iterations)
-    f_lo = residual(T_lo)
-    f_hi = residual(T_hi)
-    f_hi == zero(f_hi) && return T_hi
-    (f_lo > zero(f_lo)) == (f_hi > zero(f_hi)) && return T_hi * NaN
-    T = T_hi
-    side = 0
-    for _ in 1:max_iterations
-        T_previous = T
-        T = (f_lo * T_hi - f_hi * T_lo) / (f_lo - f_hi)
-        f = residual(T)
-        (f == zero(f) || abs(T - T_previous) < tolerance) && return T
-        if (f > zero(f)) == (f_lo > zero(f_lo))
-            T_lo, f_lo = T, f
-            side == -1 && (f_hi /= 2)
-            side = -1
-        else
-            T_hi, f_hi = T, f
-            side == 1 && (f_lo /= 2)
-            side = 1
-        end
+# Root of `f` on [T_lo, T_hi], or NaN if there is no sign change or no convergence.
+# Not differentiated, see `_find_temperature`.
+function _bracketed_root(f, T_lo, T_hi, solver, xatol, max_iterations)
+    f_lo = f(T_lo)
+    f_hi = f(T_hi)
+    sign(f_lo) * sign(f_hi) <= 0 || return T_hi * NaN # also catches NaN residuals
+    return solve(ZeroProblem(f, (T_lo, T_hi)), solver; xatol, maxiters=max_iterations)
+end
+
+const NEWTON_REFINEMENT = (; steps=2, slope_step=1e-3) # slope_step in K
+
+# Temperature between `lower` and `upper` where `residual` is zero.
+# Roots.jl finds the root, then Newton steps refine it. Autodiff of the Newton steps gives the
+# implicit derivative -(∂r/∂θ)/(∂r/∂T); two steps are needed for second derivatives.
+# Units are stripped because Roots.jl allocates with Unitful quantities.
+function _find_temperature(residual, lower, upper, solver, tolerance, max_iterations)
+    (; steps, slope_step) = NEWTON_REFINEMENT
+
+    f(T) = ustrip(residual(T * u"K"))
+
+    T_lo = ustrip(u"K", lower)
+    T_hi = ustrip(u"K", upper)
+    xatol = ustrip(u"K", tolerance)
+    h = slope_step
+
+    T = _bracketed_root(f, T_lo, T_hi, solver, xatol, max_iterations)
+    for _ in 1:steps
+        ∂f∂T = (f(T + h) - f(T - h)) / 2h
+        T -= f(T) / ∂f∂T
     end
-    return T
+
+    return T * u"K"
 end
 
 """
@@ -68,7 +76,8 @@ Wet bulb temperature (K) using a [`WetBulbMethod`](@ref), by default
 - `atmospheric_pressure`: Barometric pressure (any pressure unit)
 
 Humidity outside 0-1 throws a `DomainError`. Root-finding methods return `NaN` if
-no wet bulb temperature exists between 100 K below and 1 K above the air temperature.
+no wet bulb temperature exists between 100 K below and 1 K above the air temperature,
+or if their solver does not converge within `max_iterations`.
 
 # Example
 
@@ -80,5 +89,5 @@ wet_bulb_temperature(Smithsonian(; vapour_pressure_equation=Huang()), 30.0u"°C"
 """
 wet_bulb_temperature(::WetBulbMethod, ::Union{Missing,Quantity}, ::Union{Missing,Real}, ::Union{Missing,Quantity}) = missing
 wet_bulb_temperature(::Union{Missing,Quantity}, ::Union{Missing,Real,SpecificHumidity}, ::Union{Missing,Quantity}; kw...) = missing
-@inline wet_bulb_temperature(air_temperature::Quantity, humidity::Union{Real,SpecificHumidity}, atmospheric_pressure::Quantity; kw...) =
+wet_bulb_temperature(air_temperature::Quantity, humidity::Union{Real,SpecificHumidity}, atmospheric_pressure::Quantity; kw...) =
     wet_bulb_temperature(DaviesJones(; kw...), air_temperature, humidity, atmospheric_pressure)

@@ -18,12 +18,12 @@ using Unitful
         # The solution satisfies Davies-Jones eqn 2.3
         result = wet_bulb_properties(25.0u"°C", 0.5, P)
         x = (273.15u"K" / result.equivalent_temperature)^3.504
-        @test FluidProperties._saturation_terms(result.wet_bulb_temperature, P).f ≈ x rtol=1e-5
+        @test FluidProperties._pseudoadiabat_terms(result.wet_bulb_temperature, P).pseudoadiabat_function ≈ x rtol=1e-5
         # FixedNewton agrees with RefinedNewton
         @test wet_bulb_temperature(30.0u"°C", 0.5, P; convergence=FixedNewton()) ≈
               wet_bulb_temperature(30.0u"°C", 0.5, P) atol=1e-3u"K"
         # Specific humidity equivalent to the relative humidity it implies
-        rₛ = FluidProperties._saturation_terms(303.15u"K", P).rₛ
+        rₛ = FluidProperties._pseudoadiabat_terms(303.15u"K", P).saturation_mixing_ratio
         @test wet_bulb_temperature(30.0u"°C", SpecificHumidity(0.5rₛ), P) ≈ wet_bulb_temperature(30.0u"°C", 0.5, P)
     end
 
