@@ -297,7 +297,6 @@ const DRY_AIR_CONSTANTS = (;
     reference_viscosity=1.8325e-5u"kg/m/s",                     # μ₀, Sutherland's formula
     viscosity_reference_temperature=296.16u"K",                 # T₀
     sutherland_constant=120.0u"K",                              # C
-    sutherland_exponent=1.5,                                    # m
     thermal_conductivity_coefficients=(0.02425u"W/m/K", 7.038e-5u"W/m/K^2"), # k = a + b t, t relative to freezing
     reference_diffusivity=2.26e-5u"m^2/s",                      # D₀
     diffusivity_reference_temperature=273.15u"K",               # T_D₀
@@ -318,7 +317,7 @@ dry_air_properties(T; atmospheric_pressure=atm, gas_fractions::GasFractions=GasF
 function dry_air_properties(
     drybulb_temperature::Quantity, atmospheric_pressure::Quantity, gas_fractions::GasFractions
 )
-    (; reference_viscosity, viscosity_reference_temperature, sutherland_constant, sutherland_exponent,
+    (; reference_viscosity, viscosity_reference_temperature, sutherland_constant,
        thermal_conductivity_coefficients, reference_diffusivity, diffusivity_reference_temperature,
        diffusivity_reference_pressure, diffusivity_exponent, wien_constant) = DRY_AIR_CONSTANTS
 
@@ -333,7 +332,6 @@ function dry_air_properties(
     μ₀ = reference_viscosity
     T₀ = viscosity_reference_temperature
     C = sutherland_constant
-    m = sutherland_exponent
     D₀ = reference_diffusivity
     T_D₀ = diffusivity_reference_temperature
     p₀ = diffusivity_reference_pressure
@@ -347,7 +345,8 @@ function dry_air_properties(
     ρ = uconvert(u"kg/m^3", (M_a / R) * p / T)
 
     # Dynamic viscosity (Sutherland's formula)
-    μ = (μ₀ * (T₀ + C) / (T + C)) * (T / T₀)^m
+    relative_temperature = T / T₀
+    μ = (μ₀ * (T₀ + C) / (T + C)) * relative_temperature * sqrt(relative_temperature)
 
     # Kinematic viscosity
     ν = μ / ρ
