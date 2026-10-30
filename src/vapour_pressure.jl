@@ -44,10 +44,18 @@ function vapour_pressure(::GoffGratch, temperature)
     T = clamp(ustrip(u"K", temperature) + 0.01, 173.15, 373.16) # triple point of water is 273.16
 
     # Physical reference points
-    T_tr = 273.16    # K, triple point of water
-    T_b = 373.16     # K, normal boiling point of water
-    e_tr = 6.1071    # hPa, vapour pressure at triple point
-    e_b = 1013.246   # hPa, vapour pressure at boiling point
+    triple_point_temperature = 273.16      # K
+    steam_point_temperature = 373.16       # K
+    steam_point_vapour_pressure = 1013.246 # hPa
+    # Goff-Gratch's is 6.1071 hPa, which leaves a 0.07 Pa step at freezing between the ice and
+    # water equations; the step stalls Newton solves that cross freezing, so this removes it
+    triple_point_vapour_pressure = 6.107797646651983 # hPa
+
+    # Mathematical aliases
+    T_tr = triple_point_temperature
+    T_st = steam_point_temperature
+    e_tr = triple_point_vapour_pressure
+    e_st = steam_point_vapour_pressure
 
     log₁₀eₛ = if T < T_tr
         # Goff–Gratch saturation over ice
@@ -57,11 +65,11 @@ function vapour_pressure(::GoffGratch, temperature)
         log10(e_tr)
     else
         # Goff–Gratch saturation over liquid water
-        -7.90298 * (T_b / T - 1) +
-        5.02808 * log10(T_b / T) +
-        -1.3816e-07 * (exp10(11.344 * (1 - T / T_b)) - 1) +
-        8.1328e-03 * (exp10(-3.49149 * (T_b / T - 1)) - 1) +
-        log10(e_b)
+        -7.90298 * (T_st / T - 1) +
+        5.02808 * log10(T_st / T) +
+        -1.3816e-07 * (exp10(11.344 * (1 - T / T_st)) - 1) +
+        8.1328e-03 * (exp10(-3.49149 * (T_st / T - 1)) - 1) +
+        log10(e_st)
     end
     # Note: exp10 is faster than 10^x
     eₛ = exp10(log₁₀eₛ) * 100u"Pa"
@@ -82,13 +90,14 @@ vapour_pressure(::Huang, ::Missing) = missing
 function vapour_pressure(::Huang, temperature)
     t = ustrip(u"°C", temperature)
 
-    eₛ = if t > 0.0
-        # Huang (2018), water over liquid surface
-        exp(34.494 - 4924.99 / (t + 237.1)) / (t + 105.0)^1.57 * 1u"Pa"
-    else
-        # Huang (2018), water over ice surface
-        exp(43.494 - 6545.8 / (t + 278.0)) / (t + 868.0)^2 * 1u"Pa"
-    end
+    # Huang (2018) fits eₛ = exp(a - b/(t + d₁)) / (t + d₂)^c, in Pa with t in °C
+    water = (; a=34.494, b=4924.99, d₁=237.1, d₂=105.0, c=1.57)
+    # Huang's `a` is 43.494, which leaves a 0.046 Pa step at 0 °C between the ice and water
+    # fits; the step stalls Newton solves that cross freezing, so `a` is set to remove it
+    ice = (; a=43.49392478768125, b=6545.8, d₁=278.0, d₂=868.0, c=2.0)
+
+    (; a, b, d₁, d₂, c) = t > 0.0 ? water : ice
+    eₛ = exp(a - b / (t + d₁)) / (t + d₂)^c * 1u"Pa"
 
     return eₛ
 end
