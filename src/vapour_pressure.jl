@@ -44,18 +44,12 @@ function vapour_pressure(::GoffGratch, temperature)
     T = clamp(ustrip(u"K", temperature) + 0.01, 173.15, 373.16) # triple point of water is 273.16
 
     # Physical reference points
-    triple_point_temperature = 273.16      # K
-    steam_point_temperature = 373.16       # K
-    steam_point_vapour_pressure = 1013.246 # hPa
+    T_tr = triple_point_temperature = 273.16      # K
+    T_st = steam_point_temperature = 373.16       # K
+    e_st = steam_point_vapour_pressure = 1013.246 # hPa
     # Goff-Gratch's is 6.1071 hPa, which leaves a 0.07 Pa step at freezing between the ice and
     # water equations; the step stalls Newton solves that cross freezing, so this removes it
-    triple_point_vapour_pressure = 6.107797646651983 # hPa
-
-    # Mathematical aliases
-    T_tr = triple_point_temperature
-    T_st = steam_point_temperature
-    e_tr = triple_point_vapour_pressure
-    e_st = steam_point_vapour_pressure
+    e_tr = triple_point_vapour_pressure = 6.107797646651983 # hPa
 
     log₁₀eₛ = if T < T_tr
         # Goff–Gratch saturation over ice
