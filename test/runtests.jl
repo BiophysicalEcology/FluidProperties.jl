@@ -5,6 +5,7 @@ using Aqua, FluidProperties, Test, SafeTestsets, Unitful, UnitfulMoles
 end
 
 @safetestset "Fluid properties" begin include("fluid_properties_tests.jl") end
+@safetestset "Vapour pressure continuity" begin include("vapour_pressure/continuity_tests.jl") end
 @safetestset "Huang (2018) reference values" begin include("vapour_pressure/huang_tests.jl") end
 @safetestset "VapourPressureLookup" begin include("vapour_pressure/lookup_tests.jl") end
 @safetestset "Bolton vapour pressure" begin include("vapour_pressure/bolton_tests.jl") end

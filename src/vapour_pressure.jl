@@ -46,7 +46,9 @@ function vapour_pressure(::GoffGratch, temperature)
     # Physical reference points
     T_tr = 273.16    # K, triple point of water
     T_b = 373.16     # K, normal boiling point of water
-    e_tr = 6.1071    # hPa, vapour pressure at triple point
+    # Goff-Gratch's is 6.1071 hPa, which leaves a 0.07 Pa step at freezing between the ice and
+    # water equations; the step stalls Newton solves that cross freezing, so this removes it
+    e_tr = 6.107797646651983    # hPa, vapour pressure at triple point
     e_b = 1013.246   # hPa, vapour pressure at boiling point
 
     log₁₀eₛ = if T < T_tr
@@ -86,8 +88,10 @@ function vapour_pressure(::Huang, temperature)
         # Huang (2018), water over liquid surface
         exp(34.494 - 4924.99 / (t + 237.1)) / (t + 105.0)^1.57 * 1u"Pa"
     else
-        # Huang (2018), water over ice surface
-        exp(43.494 - 6545.8 / (t + 278.0)) / (t + 868.0)^2 * 1u"Pa"
+        # Huang (2018), water over ice surface. Huang's 43.494 leaves a 0.046 Pa step at 0 °C
+        # between the ice and water fits; the step stalls Newton solves that cross freezing,
+        # so 43.49392478768125 removes it
+        exp(43.49392478768125 - 6545.8 / (t + 278.0)) / (t + 868.0)^2 * 1u"Pa"
     end
 
     return eₛ
